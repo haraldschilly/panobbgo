@@ -327,7 +327,8 @@ gh workflow run measure.yml -f presets=failure                  # the failure pr
 gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 \
     -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq   # the opt-in candidates' confirmation (TODO)
 gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 \
-    -f presets=failure -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq   # failure preset (TODO, proposed)
+    -f presets=failure -f battery_seed=20260928 -f budgets=100 -f qs=1,4,16,64 \
+    -f groups=core,qLogEI,TuRBO1,SMAC,trq                        # failure preset on a fresh battery (TODO §2 (d))
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated runner-hours per group
 ```
@@ -343,8 +344,28 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     its own) is about 109.  `measure.py cost` prints the estimate of any
     grid (same arguments as `plan`).
 
+*   **The battery seed** (`-f battery_seed`, `measure.py plan
+    --battery-seed`; empty = `harness_families.DEFAULT_BATTERY_SEED`,
+    20260910, the instances of every run before 2026-09-28).  The base
+    seeds (`-f seeds`) move only the optimisers' and the durations' streams;
+    the problems — every optimum, rotation, failure region, constraint —
+    come from the battery seed.  So a run on the default battery measures
+    over optimiser seeds on the same 3 instances per family and dim that
+    everything so far was tuned on; a blind test of a change tuned on them
+    needs a **fresh battery**: another battery seed, for any preset.  A
+    unit on it carries the seed in its id and file name
+    (`trq.failure-20260928.b100.q1.d2.s4001`); a default-battery unit is
+    spelled as before (a test pins its instances bit-identical).  Every
+    group of one dispatch runs on the same battery, and the per-run seeds
+    do not depend on it, so the pairing across groups (CRN, `seed_name`)
+    holds on any battery; `aggregate` keeps cells of different batteries
+    apart (cell `failure-20260928/d2/b100/q1`) and the summary header names
+    each preset's battery seed.  Seeds used so far: 20260910 (default),
+    20260927 (§69.4's fresh wide battery, local), 20260928 (the failure
+    confirmation, TODO §2 (d)); the sealed seed is refused.  Pick an unused
+    one for the next blind test.
 *   **Units and shards.**  A unit is one strategy group on one (preset,
-    bm, q, dim) cell and one base seed, optionally one instance index of
+    bm, q, dim) cell, one battery and one base seed, optionally one instance index of
     every family (`.i<j>`) and/or one family (`.f<k>`, the k-th in battery
     order).  `plan` splits a unit that would not fit a shard: by instance
     first, by family where an instance is still too long (all three
@@ -499,7 +520,8 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     *   Δ per panobbgo spec against every external (`summary.json`; the
         markdown shows the pool's best and the two strongest others), per
         family against the pool's best, paired over seeds (t-CI95,
-        wins/seeds).  The CIs are conditional on the fixed instances; with 5
+        wins/seeds).  The CIs are conditional on the fixed instances (the
+        battery; a fresh battery seed draws new ones); with 5
         seeds, wins alone cannot be significant; the best-of is a selected
         maximum, which favours the baselines.
 *   Aggregate a downloaded run locally with

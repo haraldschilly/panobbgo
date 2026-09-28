@@ -76,7 +76,8 @@ extra).
       avoids the boundary cost; a separate crash / timeout model.  The
       fresh-seed run is prepared (the `trq` group's `RoundRobin_TRQ_fa` =
       §71.4's `+fm`, `RoundRobin_TRQ_aware` = its `+aware`; plan and
-      proposed rule: §2 q-sweep (d) below).  No failure-aware headline
+      decision rule, signed off 2026-09-28, on a fresh battery: §2 q-sweep
+      (d) below).  No failure-aware headline
       variant: §71.4 measured nothing for one (`CMAES+aware` −0.000 ±
       0.004, `Blocks_warm_CMAES_JSO+fm` +0.002 ± 0.002).
 
@@ -165,27 +166,32 @@ extra).
           whose `seed_name` it shares: `_fa` / `_aware` / `_r05` −
           `RoundRobin_TRQ`).  Fresh optimiser seeds **4001–4012** (unused:
           §67 took 1001–1012, §72.4 2001–2005, the §72 confirmation
-          3001–3012).  **The instances are not fresh:** `measure.py` builds
-          the failure battery at its fixed battery seed, the same 12
-          instances per d §71 was debugged on; the base seed moves only the
-          optimisers' streams.  This run confirms the effect over optimiser
-          seeds on those instances, not on unseen problems, and the preset
-          has no d = 10.  A fresh failure battery (a battery-seed option for
-          `measure.py` / `measure.yml`, as §69.4 did for the families) is
-          not built; if Harald wants criterion (1) on unseen instances, that
-          comes first.
+          3001–3012).  **Fresh instances too** (Harald, 2026-09-28: a
+          blind test): the default battery is the 12 instances per d §71
+          was debugged on, so the run uses a fresh battery, battery seed
+          **20260928** (`measure.py plan --battery-seed`, `-f
+          battery_seed`; unused before: the default is 20260910, §69.4's
+          wide battery 20260927; `tests/test_measure.py` checks that its
+          optima, values and failure regions differ from the default
+          battery's on every instance).  The preset still has no d = 10.
           Grid: failure preset (d 2/5), 100·d, q 1/4/16/64 (q = 1 is where
           §71 measured TRQ's gain), all groups and `trq`:
-          `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=failure -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
-          (`plan`: 155 shards, ~165.7 estimated runner-hours, 152.8 of
-          them qLogEI; trq 6 shards, 2.5 h; the estimate ran 1.56× high on
-          §67.  The failure preset's GP / core costs are the free preset's
-          estimates, `doc/dev/benchmarking.md`.)  Supplement for the
-          free-preset identity, same seeds, no GP group needed:
-          `-f presets=free -f budgets=100 -f qs=1,4,16,64 -f groups=trq`
-          (13 shards, ~6.5 h).
-          **Proposed decision rule (for Harald to sign off before the
-          dispatch; nothing is fixed yet):**
+          `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=failure -f battery_seed=20260928 -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
+          (`plan` / `cost` on the battery-seed PR: 155 shards, ~165.7
+          estimated runner-hours, 152.8 of them qLogEI; core 4 shards,
+          1.8 h; TuRBO1 5, 6.6 h; SMAC 2, 2.0 h; trq 6 shards, 2.5 h —
+          the battery seed does not change the cost model; the estimate
+          ran 1.56× high on §67.  The failure preset's GP / core costs are
+          the free preset's estimates, `doc/dev/benchmarking.md`.)
+          Supplement for the free-preset identity, same seeds and the same
+          fresh battery (the identity holds on any battery; this keeps the
+          whole run on unseen instances), no GP group needed:
+          `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=free -f battery_seed=20260928 -f budgets=100 -f qs=1,4,16,64 -f groups=trq`
+          (13 shards, ~6.5 h).  Aggregate the two runs' artifacts
+          together (or apart); their cells are `failure-20260928/…` and
+          `free-20260928/…`.
+          **Decision rule (signed off by Harald 2026-09-28 as written,
+          before the dispatch):**
           *Holm family:* the 8 failure cells (d 2/5 × q 1/4/16/64, 100·d),
           `Blocks_warm_CMAES_JSO` vs the pool's best on the headline
           metric (AOCC at q = 1, `aocc_time` at q > 1), Holm at 0.05 —
@@ -211,9 +217,9 @@ extra).
           `RoundRobin_TRQ` is nearly seed-invariant at q = 1 (box-centre
           start), `_aware` is not where the start fails (a random
           replacement), so the q = 1 CI is mostly the variant's seed spread
-          on fixed, in-sample instances; §71.4's 5/5 there makes (1) likely
-          on these instances — it guards against a seed-list accident, not
-          against overfitting to the battery.
+          on the 3 fixed instances per family and d — now unseen ones
+          (the fresh battery), so (1) also guards against overfitting to
+          §71's battery, within those instances.
           *The filter* (`RoundRobin_TRQ_fa`) is read descriptively
           (`_fa − _aware` = the difference of their `vs_base` means on the
           same common runs); it stays opt-in whatever it shows (§71.6 (b)).
@@ -343,6 +349,20 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Standing rule: no further bandit tuning without a new mechanism (§31).
 
 ## 4. Engineering backlog
+
+- [ ] **Flaky `tests/test_constraints_realistic.py::test_pressure_vessel_design_alm`.**
+      Failed once in CI on PR #393 (`best.fx` = 1.4e6 > the 1e5 bound,
+      feasible), passed on re-run.  The run is unseeded (master seed from
+      numpy's global RNG) on threaded evaluation.  A quick local look
+      (2026-09-28) did not find the cause: 20 seeds threaded and 20 with
+      `sync_evaluation` all end at fx 5.9e3–7.0e3, cv ≈ 0, so 1.4e6 is far
+      outside the seed spread seen here — a thread-timing interaction with
+      the ALM multiplier updates (`AugmentedLagrangianConstraintHandler` on
+      the event bus) on a loaded 4-core runner is the suspect, not a
+      tolerance.  Seeding + `sync_evaluation` would hide it without
+      explaining it; `flaky(retries=3)` likewise.  The test now reports
+      `strategy.seed` (print and assertion message, battery-seed PR), so
+      the next failure can be rerun with that seed, threaded, under load.
 
 - [ ] **OpenBLAS Zen 4 override (upstream #6021).**  The FP pin sets
       `OPENBLAS_L2_SIZE=2048` against it (`doc/dev/benchmarking.md`).  When

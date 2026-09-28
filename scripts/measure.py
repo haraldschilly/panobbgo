@@ -34,10 +34,18 @@ virtual time.  Subcommands:
         uv run python scripts/measure.py aggregate measure-raw --plan plan.json --out-dir measure-summary
 
 A **unit** is one strategy group on one cell and one base seed,
-``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]``: every instance
+``<group>.<preset>[-<battery>].b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]``: every instance
 of the preset at that dimension, with ``.i<j>`` only instance ``j`` of every
 family, with ``.f<k>`` only the ``k``-th family (``plan`` splits a unit that
-would not fit a shard that way, by instance first).  The groups:
+would not fit a shard that way, by instance first).  ``-<battery>``: the
+battery seed the instances are drawn with (``plan --battery-seed``), only
+when it is not :data:`DEFAULT_BATTERY_SEED`, so every id and result file of
+the default battery is spelled as before.  The base seed moves the
+optimisers' and the durations' streams, the battery seed the problems (a
+fresh battery: new optima, rotations, failure regions); every group of a
+run sees the same instances and the same streams, so the pairing across
+groups holds on any battery, and cells on different batteries are kept
+apart in the aggregate.  The groups:
 
 ``core``
     The panobbgo specs (``make_ioh_strategies``), the cheap-track external
@@ -72,7 +80,7 @@ a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
 calls), so q = 64 runs at 100·d only.  Seeds: the first N of the decision
-roster.  Every run is seeded and deterministic on one host, with no
+roster.  Battery: :data:`DEFAULT_BATTERY_SEED` unless ``--battery-seed``.  Every run is seeded and deterministic on one host, with no
 wall-clock limit (the GP baselines are exempt from it anyway).
 """
 
@@ -177,6 +185,45 @@ PRESET_DIMS: Dict[str, Tuple[int, ...]] = {"free": (2, 5, 10), "failure": (2, 5)
 #: so a unit is 3x a free unit; the default stays ``free``.
 N_INSTANCES = 3
 PRESET_FAMILIES: Dict[str, int] = {"free": 5, "failure": 4, "wide": 15}
+
+#: The battery seed of every preset unless a unit names another
+#: (``harness_families.DEFAULT_BATTERY_SEED``; spelled out here because
+#: ``plan`` imports no panobbgo, and a test pins the two equal).  The
+#: battery seed draws the problems (every instance's optimum, rotation,
+#: failure region, ...); the base seed ``s<seed>`` only the optimisers' and
+#: the durations' streams.  A unit on another battery carries it in its id
+#: (:attr:`Unit.preset_token`): ``failure-20260928``.
+DEFAULT_BATTERY_SEED = 20260910
+
+#: The sealed test set's battery seed (``panobbgo.sealed.SEALED_FAMILY_SEED``;
+#: pinned equal by a test): never a development battery, refused here.
+SEALED_FAMILY_SEED = 569725740
+
+
+def preset_token(preset: str, battery: int) -> str:
+    """``preset`` on the default battery, else ``<preset>-<battery seed>`` (a unit id's and a cell's preset part)."""
+    return preset if battery == DEFAULT_BATTERY_SEED else f"{preset}-{battery}"
+
+
+def parse_preset_token(token: str) -> Tuple[str, int]:
+    """The inverse of :func:`preset_token`: ``(preset, battery seed)``; canonical spellings only."""
+    preset, sep, tail = token.partition("-")
+    if not sep:
+        return preset, DEFAULT_BATTERY_SEED
+    if not tail.isdigit() or str(int(tail)) != tail or int(tail) == DEFAULT_BATTERY_SEED:
+        # One spelling per battery: the default battery is the bare preset, no leading zeros.
+        raise ValueError(f"not a canonical preset token: {token!r}")
+    return preset, int(tail)
+
+
+def check_battery_seed(battery: int) -> int:
+    """``battery`` if it is a usable development battery seed (a non-negative int, not the sealed one)."""
+    if battery < 0:
+        raise ValueError(f"battery seed {battery} is negative")
+    if battery == SEALED_FAMILY_SEED:
+        raise ValueError("the sealed family seed is not a development battery (panobbgo.sealed)")
+    return battery
+
 
 #: The virtual clock of every run: async policy, log-normal durations.
 DURATION = "lognormal"
@@ -371,6 +418,9 @@ class Unit:
     ``inst = -1``: every instance; ``inst = j``: instance ``j`` of every
     family.  ``fam = -1``: every family; ``fam = k``: only the ``k``-th family
     of the preset (battery order).  Both set: one run per strategy.
+    ``battery``: the battery seed the preset's instances are drawn with
+    (:data:`DEFAULT_BATTERY_SEED` unless the id's preset part names another,
+    ``failure-20260928``).
     """
 
     group: str
@@ -381,12 +431,18 @@ class Unit:
     seed: int
     inst: int = -1
     fam: int = -1
+    battery: int = DEFAULT_BATTERY_SEED
+
+    @property
+    def preset_token(self) -> str:
+        """The preset part of the id: ``<preset>`` on the default battery, else ``<preset>-<battery seed>``."""
+        return preset_token(self.preset, self.battery)
 
     @property
     def id(self) -> str:
-        """``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]`` (also the result file's stem)."""
+        """``<group>.<preset>[-<battery>].b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]`` (also the result file's stem)."""
         tail = (f".i{self.inst}" if self.inst >= 0 else "") + (f".f{self.fam}" if self.fam >= 0 else "")
-        return f"{self.group}.{self.preset}.b{self.bm}.q{self.q}.d{self.dim}.s{self.seed}{tail}"
+        return f"{self.group}.{self.preset_token}.b{self.bm}.q{self.q}.d{self.dim}.s{self.seed}{tail}"
 
     @classmethod
     def parse(cls, text: str) -> "Unit":
@@ -395,7 +451,8 @@ class Unit:
             parts = text.strip().split(".")
             if len(parts) not in (6, 7, 8):
                 raise ValueError
-            group, preset, b, q, d, s = parts[:6]
+            group, token, b, q, d, s = parts[:6]
+            preset, battery = parse_preset_token(token)
             if not (b[0] == "b" and q[0] == "q" and d[0] == "d" and s[0] == "s"):
                 raise ValueError
             inst = fam = -1
@@ -406,10 +463,11 @@ class Unit:
                 fam = int(tail.pop(0)[1:])
             if tail:
                 raise ValueError
-            unit = cls(group, preset, int(b[1:]), int(q[1:]), int(d[1:]), int(s[1:]), inst, fam)
+            unit = cls(group, preset, int(b[1:]), int(q[1:]), int(d[1:]), int(s[1:]), inst, fam, battery)
+            check_battery_seed(unit.battery)
         except (ValueError, IndexError):
             raise ValueError(
-                f"not a unit id: {text!r} (want <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>])"
+                f"not a unit id: {text!r} (want <group>.<preset>[-<battery>].b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>])"
             ) from None
         if unit.group not in GROUPS or unit.preset not in PRESET_DIMS:
             raise ValueError(f"unknown group or preset in {text!r}")
@@ -448,8 +506,10 @@ def make_units(
     dims: Optional[Sequence[int]],
     qs: Sequence[int],
     groups: Sequence[str],
+    battery: int = DEFAULT_BATTERY_SEED,
 ) -> List[Unit]:
-    """Every unit of the grid that :func:`covered` admits, with ``q <= bm``."""
+    """Every unit of the grid that :func:`covered` admits, with ``q <= bm``, on battery seed ``battery``."""
+    check_battery_seed(battery)
     units = []
     for preset in presets:
         if preset not in PRESET_DIMS:
@@ -465,7 +525,7 @@ def make_units(
                     for dim in pdims:
                         if not covered(group, bm, dim, q):
                             continue
-                        units.extend(Unit(group, preset, bm, q, dim, s) for s in seeds)
+                        units.extend(Unit(group, preset, bm, q, dim, s, battery=battery) for s in seeds)
     return units
 
 
@@ -642,9 +702,16 @@ def _grid(args: argparse.Namespace) -> Tuple[List[Unit], List[Unit]]:
         int_list(args.dims) if args.dims else None,
         int_list(args.qs),
         groups,
+        battery_seed(args.battery_seed),
     )
     extra = [Unit.parse(u) for u in (args.extra_units or "").split(";") if u.strip()]
     return units, extra
+
+
+def battery_seed(text: Optional[str]) -> int:
+    """The ``--battery-seed`` argument: empty for :data:`DEFAULT_BATTERY_SEED`, else a non-negative int."""
+    text = (text or "").strip()
+    return check_battery_seed(int(text)) if text else DEFAULT_BATTERY_SEED
 
 
 def plan_cost(entries: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -800,11 +867,12 @@ def _strategies(group: str) -> List[Any]:
     return specs + [by_name[n] for n in names]
 
 
-def _instances(preset: str, dim: int, inst: int = -1, fam: int = -1) -> List[Any]:
+def _instances(preset: str, dim: int, inst: int = -1, fam: int = -1, battery: int = DEFAULT_BATTERY_SEED) -> List[Any]:
+    """The instances of ``preset`` at ``dim`` on battery seed ``battery`` (``inst`` / ``fam``: only those)."""
     from panobbgo.harness_families import make_failure_battery, make_families_battery, make_wide_battery
 
     make = {"free": make_families_battery, "failure": make_failure_battery, "wide": make_wide_battery}[preset]
-    instances = list(make(dims=(dim,), n_instances=N_INSTANCES))
+    instances = list(make(dims=(dim,), n_instances=N_INSTANCES, seed=check_battery_seed(battery)))
     families = list(dict.fromkeys(str(p.family) for _, p in instances))  # battery order
     if len(families) != PRESET_FAMILIES[preset]:
         raise ValueError(f"preset {preset!r}: {len(families)} families, PRESET_FAMILIES says {PRESET_FAMILIES[preset]}")
@@ -821,7 +889,7 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
     from panobbgo.virtual_clock import VirtualSpec
 
     t0 = time.time()
-    instances = _instances(unit.preset, unit.dim, unit.inst, unit.fam)
+    instances = _instances(unit.preset, unit.dim, unit.inst, unit.fam, unit.battery)
     if not instances:
         raise ValueError(f"{unit.id}: no instances")
     specs = _strategies(unit.group)
@@ -832,7 +900,7 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
         base_seed=unit.seed,
         sync_eval=True,
         progress=progress,
-        battery_name=f"measure-{unit.preset}-b{unit.bm}",
+        battery_name=f"measure-{unit.preset_token}-b{unit.bm}",
         jobs=jobs,
         virtual=VirtualSpec(workers=unit.q, duration=DURATION, sigma=SIGMA, policy="async"),
     )
@@ -846,6 +914,7 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
         "seed": unit.seed,
         "inst": unit.inst,
         "fam": unit.fam,
+        "battery_seed": unit.battery,
         "elapsed_s": time.time() - t0,
         # Each spec's RNG identity (``seed_name or name``): the aggregate pairs a variant with its base spec on it.
         "rng_identity": {s.name: s.rng_identity for s in specs},
@@ -914,7 +983,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 # aggregate
 # ---------------------------------------------------------------------------
 
-#: A cell of the summary: (preset, dim, bm, q).
+#: A cell of the summary: (preset token, dim, bm, q); the preset token
+#: (:func:`preset_token`) carries the battery seed when it is not the
+#: default, so runs on different batteries never share a cell or a pool.
 Cell = Tuple[str, int, int, int]
 #: A paired observation: (seed, family, instance).
 Key = Tuple[int, str, int]
@@ -999,7 +1070,13 @@ def collect(payloads: Iterable[Dict[str, Any]]) -> Dict[Cell, Dict[str, Dict[Key
         if d["unit"] in seen:
             raise ValueError(f"unit {d['unit']} appears twice")
         seen.add(d["unit"])
-        cell: Cell = (d["preset"], int(d["dim"]), int(d["bm"]), int(d["q"]))
+        u = Unit.parse(d["unit"])
+        # Result files from before the battery seed was recorded ran on the default battery.
+        if int(d.get("battery_seed", DEFAULT_BATTERY_SEED)) != u.battery:
+            raise ValueError(
+                f"unit {d['unit']}: battery seed {d.get('battery_seed')} in the file, {u.battery} in the id"
+            )
+        cell: Cell = (u.preset_token, int(d["dim"]), int(d["bm"]), int(d["q"]))
         fp = fp_label(d)
         virtual = d["result"].get("virtual") is not None
         for r in d["result"]["runs"]:
@@ -1191,7 +1268,7 @@ def _expected(
             u = Unit.parse(text)
             names = list(GROUPS[u.group]) + list(GROUP_SPECS.get(u.group, ()))
             names += list(core_names) if u.group == "core" else []
-            per = out.setdefault((u.preset, u.dim, u.bm, u.q), {})
+            per = out.setdefault((u.preset_token, u.dim, u.bm, u.q), {})
             for n in names:
                 per.setdefault(n, set()).add(u.seed)
     for cell, strats in cells.items():
@@ -1306,7 +1383,8 @@ def summarize(
 
     out: Dict[str, Dict[str, Any]] = {}
     for c in sorted(cells):
-        preset, dim, bm, q = c
+        token, dim, bm, q = c
+        preset, battery = parse_preset_token(token)
         strats = cells[c]
         hm = headline_metric(q)
         # A q cell no external ran (only panobbgo specs) has an empty pool; elsewhere this keeps the whole pool.
@@ -1392,8 +1470,9 @@ def summarize(
                 }
         planned_names = sorted(expected[c])
         ex = ex_ellipsoid(strats, cell_pool, common)
-        out[f"{preset}/d{dim}/b{bm}/q{q}"] = {
+        out[f"{token}/d{dim}/b{bm}/q{q}"] = {
             "preset": preset,
+            "battery_seed": battery,
             "dim": dim,
             "bm": bm,
             "q": q,
@@ -1501,6 +1580,10 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
         },
         "virtual": {"duration": DURATION, "sigma": SIGMA, "policy": "async", "durations": "crn"},
         "headline_spec": HEADLINE_SPEC,
+        # Per preset token (preset and battery seed): what the header states.
+        "battery_seeds": {
+            t: parse_preset_token(t)[1] for t in sorted({Unit.parse(d["unit"]).preset_token for d in payloads})
+        },
         "cells": summarize(cells, planned_units, [s.name for s in make_ioh_strategies()], base_specs(payloads)),
         "calibration": calibration_rows(calibration),
     }
@@ -1554,6 +1637,20 @@ def _seeds(r: Dict[str, Any]) -> str:
     return f"{r['n_seeds']}/{r['planned_seeds']}{mark}"
 
 
+def _battery_line(summary: Dict[str, Any]) -> str:
+    """The header line naming each preset's battery seed (a summary without the field: the default battery)."""
+    seeds = summary.get("battery_seeds") or {}
+    parts = [
+        f"`{t}` {seed}" + (" (default)" if seed == DEFAULT_BATTERY_SEED else " (a fresh battery: new instances)")
+        for t, seed in seeds.items()
+    ]
+    return (
+        "Battery seed (the problem instances; the base seeds move only the optimisers): "
+        + ("; ".join(parts) if parts else f"{DEFAULT_BATTERY_SEED} (default)")
+        + "."
+    )
+
+
 def summary_markdown(summary: Dict[str, Any]) -> str:
     """The summary as Markdown: the headline table, the per-family table, then one table per cell."""
     hs = summary["headline_spec"]
@@ -1566,6 +1663,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         f"Virtual clock: async policy, {summary['virtual']['duration']} durations "
         f"(sigma {summary['virtual']['sigma']}), common random numbers per cell (the i-th dispatch takes the same "
         "time for every strategy); `aocc_time` over the horizon budget/q mean durations.",
+        _battery_line(summary),
         "",
         "**How to read this.**",
         f"- Pre-declared: the headline spec is `{hs}`; the other panobbgo specs are secondary.  The headline "
@@ -1835,6 +1933,13 @@ def _grid_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--presets", default="free", help="Comma list of: free, failure, wide (wide: opt-in).")
     p.add_argument("--budgets", default="20,100", help="Budget multipliers (budget = bm*dim).")
     p.add_argument("--dims", default="", help="Restrict the presets' dimensions (default: all of them).")
+    p.add_argument(
+        "--battery-seed",
+        default="",
+        help=f"The battery seed of every preset's instances (default, empty: {DEFAULT_BATTERY_SEED}, the "
+        "instances of every run so far); another seed draws a fresh battery and tags the unit ids "
+        "(<preset>-<seed>).",
+    )
     p.add_argument("--qs", default="1,4,16,64", help="Virtual worker counts; q <= bm only.")
     p.add_argument(
         "--groups",

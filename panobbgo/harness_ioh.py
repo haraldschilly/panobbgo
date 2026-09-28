@@ -851,14 +851,16 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 # DISCOVERY §72: the regime table's dim/budget rows, no noise
                 # oracle.  Unconstrained, d >= 10, <= 500·d and at most
                 # λ_default workers -> CMA-ES alone; everything else as before.
-                # It turned the d10/100·d/q4 Holm loss to TuRBO1 (§67) into a
-                # lead on the §67 seeds (+0.006, 10/12).
+                # It turned the d10/100·d/q4 Holm loss to TuRBO1 into a lead
+                # on the §67 seeds (+0.006, 10/12; not blind — on fresh seeds
+                # 2001-2005 +0.004 vs the old spec, n.s.).
                 "regime_gate": "dim-budget",
                 # DISCOVERY §72: before the first result, workers the arms
                 # cannot fill take the other arm's queue, then a Latin
                 # hypercube.  Binds only where the arms' first generations are
                 # smaller than q (100·d: d2/q64, d5/q64); it closed the
-                # d2/100·d/q64 Holm loss to qLogEI (§67) to parity.
+                # d2/100·d/q64 Holm loss to qLogEI to parity on the §67 seeds
+                # (not blind; fresh seeds 2001-2005: +0.012 vs the old spec).
                 "first_round_fill": True,
             },
         ),

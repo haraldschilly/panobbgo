@@ -511,7 +511,11 @@ class StrategyBlockBandit(StrategyBase):
         bit-identical to ``False``.  DISCOVERY §72: at d = 2, 100·d, q = 64
         CMA-ES (λ capped at 20) and jSO (NP 6) fill 26 of 64 workers until
         the first results return, the idle start that made the
-        d2/q64 Holm loss to qLogEI.
+        d2/q64 Holm loss to qLogEI.  The design's results land in the
+        open (prologue) block's trace, so that block's reward includes their
+        progress; under ``policy="uniform"`` rewards decide nothing.  A run
+        that starts with results (a resume, ``preload_results``) is past its
+        first round and never fills.
     """
 
     def __init__(
@@ -701,6 +705,7 @@ class StrategyBlockBandit(StrategyBase):
         return best if best > 0 else self.LAMBDA_REF_DEFAULT
 
     def _max_eval(self) -> int:
+        """The budget, or 1000 when ``max_eval`` is unset (the block size, the tail and the regime gates read it)."""
         return self.max_eval_or(1000)
 
     def add_heuristic(self, h: Heuristic) -> None:
@@ -820,6 +825,21 @@ class StrategyBlockBandit(StrategyBase):
         CMA-ES the row never measured; on the expensive track the
         portfolio is level with it at q = 16 and ahead on AOCC at q = 64
         (DISCOVERY §67.5, §72).
+
+        On real backends (threads, processes, dask) the λ floor is off by
+        default, and the rule reads the evaluator count
+        (:meth:`~panobbgo.core.StrategyBase._n_evaluators`), not λ.  So it is
+        conservative there: it gates only up to λ_default evaluators, where
+        the serial row's evidence applies.  It is also unmeasured there.
+        The decision is taken once, at the first :meth:`execute`, and fixed
+        for the run.  A dask cluster that is still connecting reads as one
+        worker at that moment, so the gate may apply for a cluster that later
+        grows past λ_default.
+
+        ``regime_decision["applied"]`` says that the row was *used*, not that
+        an arm was switched off: the ``dim <= 5, bpd <= 200`` row is applied
+        and keeps both arms (``disabled == []``).  The budget is
+        :meth:`_max_eval`, i.e. 1000 when no ``max_eval`` is set.
         """
         dim = int(self.problem.dim)
         max_eval = self._max_eval()
@@ -1423,4 +1443,6 @@ class StrategyBlockBandit(StrategyBase):
         if measured:
             best = max(measured, key=self._q)
             info["best_arm"] = "%s (Q=%.3f)" % (best, self._q(best))
+        if self._initial_design_n or self._filled:
+            info["first_round_fill"] = "design %d, other arms %s" % (self._initial_design_n, dict(self._filled))
         return info

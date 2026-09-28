@@ -6444,6 +6444,14 @@ old spec.
     applies to it.  The gate stays off when an arm plays no role of the
     table: the rows never saw a third arm, and applying them would switch
     TRQ off at d ≥ 10.
+  * **Both specs change where the fill binds** (100·d d2/q64 and d5/q64,
+    20·d d2/q16).  §67's `RegimeGate_oracle` units and the §66/§71 TRQ
+    numbers go stale in those cells.  Neither spec was re-measured with
+    the fill.
+  * **The cheap track.**  Every cheap-track battery at d ≥ 10 runs
+    threaded with 2 workers (≤ λ_default), so the gate applies there.
+    The §61 reference numbers for `Blocks_warm_CMAES_JSO` at d ≥ 10 no
+    longer reproduce (`doc/dev/benchmarking.md`, "Comparability").
   * The selector menu (§70) uses the registry spec, so its Blocks arm
     changes where the gate binds.  Its probe preloads results, so the
     fill never acts there.
@@ -6454,7 +6462,27 @@ old spec.
   But it is a regime-gate default for the headline spec.  **Harald
   confirms before the PR merges.**
 
-### 72.6 Not measured / next
+### 72.6 Caveats
+
+* **Selection.**  The two shipped options were picked from about nine
+  prototypes (§72.1, §72.2), in sample.  Holm over the 9 headline cells
+  does not cover that search.
+* **The d10/q4 Holm win rests on non-blind seeds.**  It is +0.006,
+  p_holm 0.006, on the §67 seeds, which the diagnosis had seen.  On the
+  fresh seeds 2001–2005 the change against the old spec is +0.004
+  [−0.001, +0.009] 4/5, not significant, and there is no pool
+  comparison.
+* **d2/q64 trades AOCC for `aocc_time`.**  AOCC changes by −0.004
+  [−0.009, +0.002] on the §67 seeds and −0.010 [−0.020, +0.001] on the
+  fresh seeds.  On the ellipsoid family it is −0.016 [−0.030, −0.001]
+  3/12.  The space-filling first round is worse per evaluation than
+  CMA-ES samples.  The headline metric at q > 1 is `aocc_time`.
+* **Real backends.**  There the λ floor is off and the gate reads the
+  evaluator count, so it is conservative (it gates only up to λ_default
+  workers) and unmeasured.  The decision is fixed at the first pass.  A
+  dask cluster that is still connecting reads as one worker.
+
+### 72.7 Not measured / next
 
 * The GP baselines on the fresh seeds; §72.4 is new − old only.
 * The cheap track at d ≥ 10 with the gate (q = 1 batteries).

@@ -455,7 +455,10 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         jobs: a key is (seed, family, instance), the instances and CRN
         durations depend on the cell and seed only, the RNG streams on the
         `seed_name`.  Unadjusted and outside the Holm family.  This table
-        judges the §72 gate and the TRQ variants.
+        judges the §72 gate against the headline spec; a TRQ variant against
+        its base (`RoundRobin_TRQ_r05` − `RoundRobin_TRQ`, same `seed_name`)
+        is not in the summary: difference their `vs_headline` means (the same
+        common runs) or pair them from the unit files.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
         every q cell with no crashed or timed-out run (a q cell no external
         ran, e.g. only `trq`, does not count and has an empty pool itself).  Best-of is taken over

@@ -175,7 +175,7 @@ extra).
       groups, `vs_headline` needs none), and optionally the gate's 20·d
       cells, `-f budgets=20 -f dims=10 -f qs=1,4` with all groups
       (64 shards, ~52 h, SMAC and qLogEI most of it).
-      **Proposed decision rule, for Harald to fix before the dispatch:**
+      **Decision rule (fixed by Harald 2026-09-28, before the dispatch; main run + the 100·d q = 1 supplement, no 20·d):**
       in the main grid the gate (`Blocks_warm_CMAES_JSO_dimbudget`) binds
       only at 100·d d10/q4 (§72.5).  It becomes the default if there its
       paired Δ against `Blocks_warm_CMAES_JSO` on `aocc_time` (the

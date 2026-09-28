@@ -326,6 +326,8 @@ gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4 \
 gh workflow run measure.yml -f presets=failure                  # the failure preset
 gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 \
     -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq   # the opt-in candidates' confirmation (TODO)
+gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 \
+    -f presets=failure -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq   # failure preset (TODO, proposed)
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated runner-hours per group
 ```
@@ -356,7 +358,11 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     trust-region specs (`harness_ioh.make_trust_region_strategies`:
     `RoundRobin_TRQ`, `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`,
     DISCOVERY §66; `RoundRobin_TRQ_r05`, §69.5's `radius_init` 0.5 — start,
-    restart and tabu radius — on `RoundRobin_TRQ`'s RNG streams) and the `Blocks_warm_CMAES_JSO` variants
+    restart and tabu radius — on `RoundRobin_TRQ`'s RNG streams;
+    `RoundRobin_TRQ_fa` and `RoundRobin_TRQ_aware`, §71's failure-region
+    candidates on the same streams: `failure_aware=True` with the
+    `FailureModel` filter, §71.4's winning `+fm`, and `failure_aware=True`
+    alone, its `+aware`) and the `Blocks_warm_CMAES_JSO` variants
     (`make_blocks_variant_strategies`: `Blocks_warm_CMAES_JSO_dimbudget`,
     §72's dim/budget gate on the headline spec's RNG streams) on exactly the core
     cells and seeds, with the same instances and CRN durations (the duration
@@ -406,10 +412,13 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     p90 of one run (seed 42, 15 runs per cell, 4 processes, niced) of the
     first three specs on one instance (`TRQ_LAPTOP_SECONDS`, 0.8–8 s) plus
     that of the two later candidates (`CANDIDATE_LAPTOP_SECONDS`, 0.07–2.7 s,
-    measured 2026-09-28; `RoundRobin_TRQ_r05` is most of it), times
+    measured 2026-09-28; `RoundRobin_TRQ_r05` is most of it) and of §71's
+    two (`FAILURE_CANDIDATE_LAPTOP_SECONDS`, 0.1–10 s, measured 2026-09-28
+    on the free and the failure grid, the larger of the two per cell — the
+    failure preset is dearer where the model works, d2/100·d/q1 3.5 s), times
     `TRQ_RUNNER_FACTOR` = 4 (the top of the 2–4× runner/laptop ratio seen
-    elsewhere), so 4–43 s a run.  Five seeds of the free grid are 105 units
-    in 5 shards, about 2.5 estimated runner-hours; the default grid does not
+    elsewhere), so 4–84 s a run.  Five seeds of the free grid are 105 units
+    in 7 shards, about 3.4 estimated runner-hours; the default grid does not
     change (140 shards).  Recalibrate it from the first run's `s/run`.
 *   **Cost.**  `plan` packs the units into shards of at most 90 estimated
     minutes (`--target-minutes`; core shards 30) on a 4-core runner and
@@ -455,10 +464,21 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         jobs: a key is (seed, family, instance), the instances and CRN
         durations depend on the cell and seed only, the RNG streams on the
         `seed_name`.  Unadjusted and outside the Holm family.  This table
-        judges the §72 gate against the headline spec; a TRQ variant against
-        its base (`RoundRobin_TRQ_r05` − `RoundRobin_TRQ`, same `seed_name`)
-        is not in the summary: difference their `vs_headline` means (the same
-        common runs) or pair them from the unit files.
+        judges the §72 gate against the headline spec.
+    *   **Variants against their base spec** (descriptive): every panobbgo
+        spec that draws another spec's RNG streams (its `seed_name`) is
+        paired with that spec, in the same format (`summary.json`:
+        `base_spec` and `vs_base` per spec; the markdown table *Variants −
+        their base spec*): `RoundRobin_TRQ_r05`, `RoundRobin_TRQ_fa` and
+        `RoundRobin_TRQ_aware` − `RoundRobin_TRQ`, so the delta carries only
+        the option, and *equal* = n where the option does not act (a
+        `failure_aware` arm on the free preset, §71.5).  The headline spec's
+        variants (`Blocks_warm_CMAES_JSO_dimbudget`, `_TRQ`,
+        `RegimeGate_oracle`) have it too but stay in the table above, which
+        is the same comparison.  The base comes from the `rng_identity` map
+        each unit file records (`measure.py run`); a file written before it
+        was recorded falls back to the registries' current `seed_name`.
+        Unadjusted and outside the Holm family.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
         every q cell with no crashed or timed-out run (a q cell no external
         ran, e.g. only `trq`, does not count and has an empty pool itself).  Best-of is taken over

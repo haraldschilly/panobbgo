@@ -1014,11 +1014,31 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 #: the tabu-ball radius, so at 0.5 restarts change too.  It shares
 #: ``RoundRobin_TRQ``'s ``seed_name``, so the paired delta between the two
 #: carries only ``radius_init``.
+#:
+#: ``RoundRobin_TRQ_fa`` and ``RoundRobin_TRQ_aware`` are roadmap §4 D's
+#: failure-region candidates (DISCOVERY §71), on ``RoundRobin_TRQ``'s RNG
+#: streams.  ``_fa`` is §71.4's winning configuration exactly (its ``+fm``):
+#: ``TrustRegionQuadratic(failure_aware=True)`` plus the shared
+#: :class:`~panobbgo.analyzers.failure_model.FailureModel` with its proposal
+#: filter (``filter=True``, the analyzer's other defaults), +0.037 ± 0.006
+#: AOCC over TRQ on the ``failure`` preset (5/5 seeds, in sample).
+#: ``_aware`` is the arm's own handling alone (§71.4's ``+aware``, +0.028 ±
+#: 0.005, 5/5): the change §71.6 (a) proposes as TRQ's default, while the
+#: filter stays opt-in (§71.6 (b)).  Both are bit-identical to
+#: ``RoundRobin_TRQ`` on a problem without failures (§71.5).
+#:
+#: No failure-aware headline variant (``Blocks_warm_CMAES_JSO`` with
+#: ``CMAES(failure_aware=True)``): §71.4 measured nothing to support one —
+#: ``RoundRobin_CMAES+aware`` −0.000 ± 0.004 (2/5), the portfolio's ``+fm``
+#: +0.002 ± 0.002, and the population arms waste only 3–7 % of their budget
+#: on failures (§71.1; §71.4 readings 1 and 4).
 TRUST_REGION_NAMES: Tuple[str, ...] = (
     "RoundRobin_TRQ",
     "Blocks_warm_CMAES_JSO_TRQ",
     "RoundRobin_COBYQA",
     "RoundRobin_TRQ_r05",
+    "RoundRobin_TRQ_fa",
+    "RoundRobin_TRQ_aware",
 )
 
 
@@ -1034,9 +1054,14 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
     seed-invariant).  ``RoundRobin_TRQ_r05`` is ``RoundRobin_TRQ`` with
     ``radius_init=0.5`` (the start and restart radius and the tabu-ball
     size; DISCOVERY §69.5) and ``seed_name="RoundRobin_TRQ"``.
+    ``RoundRobin_TRQ_fa`` (``failure_aware=True`` plus the
+    :class:`~panobbgo.analyzers.failure_model.FailureModel` filter, §71.4's
+    ``+fm``) and ``RoundRobin_TRQ_aware`` (``failure_aware=True`` alone,
+    §71.4's ``+aware``) share that ``seed_name`` too.
     ``names`` restricts the list (unknown names are ignored); ``None``
     returns all of :data:`TRUST_REGION_NAMES`.
     """
+    from panobbgo.analyzers.failure_model import FailureModel
     from panobbgo.heuristics import COBYQA, TrustRegionQuadratic
     from panobbgo.strategies import StrategyRoundRobin
 
@@ -1066,6 +1091,22 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
             name="RoundRobin_TRQ_r05",
             strategy_class=StrategyRoundRobin,
             heuristics=[(TrustRegionQuadratic, {"radius_init": 0.5})],
+            seed_name="RoundRobin_TRQ",
+        ),
+        # DISCOVERY §71.4's "+fm", as benchmarks/failure_screen.py built it: the arm's
+        # failure handling and the shared failure model with its proposal filter.
+        StrategySpec(
+            name="RoundRobin_TRQ_fa",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(TrustRegionQuadratic, {"failure_aware": True})],
+            analyzers=[(FailureModel, {"filter": True})],
+            seed_name="RoundRobin_TRQ",
+        ),
+        # §71.4's "+aware": the arm's handling alone, the default candidate of §71.6 (a).
+        StrategySpec(
+            name="RoundRobin_TRQ_aware",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(TrustRegionQuadratic, {"failure_aware": True})],
             seed_name="RoundRobin_TRQ",
         ),
     ]

@@ -52,17 +52,22 @@ would not fit a shard that way, by instance first).  The groups:
     the trust-region specs of DISCOVERY §66/§69.5
     (``harness_ioh.make_trust_region_strategies``: ``RoundRobin_TRQ``,
     ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA``,
-    ``RoundRobin_TRQ_r05``) and the opt-in ``Blocks_warm_CMAES_JSO``
-    variants (``harness_ioh.make_blocks_variant_strategies``: §72's
+    ``RoundRobin_TRQ_r05``, and §71's failure-region candidates
+    ``RoundRobin_TRQ_fa`` / ``RoundRobin_TRQ_aware``) and the opt-in
+    ``Blocks_warm_CMAES_JSO`` variants
+    (``harness_ioh.make_blocks_variant_strategies``: §72's
     ``Blocks_warm_CMAES_JSO_dimbudget``), on every cell like core, in shards
     of their own.  Secondary panobbgo specs in the aggregate: not in the
     pool, not the headline; each gets a paired delta against the headline
-    spec (:func:`summarize`, ``vs_headline``).  Pair them with the other
+    spec (:func:`summarize`, ``vs_headline``) and, when it shares another
+    spec's RNG streams (``seed_name``), against that base spec
+    (``vs_base``).  Pair them with the other
     groups in one run (``--groups core,qLogEI,TuRBO1,SMAC,trq``), or aggregate a ``trq`` run
     together with a run of the other groups on the same seeds.
 
 Cost model: :data:`RUNNER_SECONDS`, measured on the runners (the ``trq`` row: a laptop
-estimate, :data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS`); ``plan`` refuses
+estimate, :data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS` +
+:data:`FAILURE_CANDIDATE_LAPTOP_SECONDS`); ``plan`` refuses
 a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
@@ -106,13 +111,17 @@ CHEAP_EXTERNALS: Tuple[str, ...] = (
 LOCAL_REFERENCE = "Baseline_PyBOBYQA"
 
 #: The trust-region candidates of the ``trq`` group (``harness_ioh.TRUST_REGION_NAMES``:
-#: DISCOVERY §66, and §69.5's start radius ``RoundRobin_TRQ_r05``).  Spelled out here:
-#: ``plan`` imports no panobbgo; a test pins the two equal.
+#: DISCOVERY §66, §69.5's start radius ``RoundRobin_TRQ_r05``, and §71's failure-region
+#: candidates: ``RoundRobin_TRQ_fa`` = ``failure_aware`` + the ``FailureModel`` filter,
+#: ``RoundRobin_TRQ_aware`` = ``failure_aware`` alone).  Spelled out here: ``plan``
+#: imports no panobbgo; a test pins the two equal.
 TRUST_REGION_SPECS: Tuple[str, ...] = (
     "RoundRobin_TRQ",
     "Blocks_warm_CMAES_JSO_TRQ",
     "RoundRobin_COBYQA",
     "RoundRobin_TRQ_r05",
+    "RoundRobin_TRQ_fa",
+    "RoundRobin_TRQ_aware",
 )
 
 #: The opt-in ``Blocks_warm_CMAES_JSO`` variants of the ``trq`` group
@@ -209,6 +218,23 @@ CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
     (10, 1000, 1): 2.72, (10, 1000, 4): 2.37, (10, 1000, 16): 2.74, (10, 1000, 64): 1.97,
 }  # fmt: skip
 
+#: Laptop seconds of one run of §71's failure-region candidates, ``RoundRobin_TRQ_fa`` and
+#: ``RoundRobin_TRQ_aware`` (on one instance, summed), measured 2026-09-28 like
+#: :data:`CANDIDATE_LAPTOP_SECONDS` (seed 42, 4 processes, ``nice -n 10 ionice -c3``, the p90 per
+#: cell) on both the free grid (15 runs a cell) and the failure grid (d 2/5, 12 runs a cell); each
+#: entry is the larger of the two presets.  The failure preset is the dearer one where it binds
+#: (d2/200/q1 3.5 s against 0.5 s free: the model's queries and the filter); d = 10 is free only.
+#: (2, 40, 1) is the first cell of the run, process start-up included (the failure preset's
+#: 0.11 s is the steady value); kept, it only rounds the estimate up.
+FAILURE_CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
+    (2, 40, 1): 1.15, (2, 40, 4): 0.11, (2, 40, 16): 0.10,
+    (2, 200, 1): 3.47, (2, 200, 4): 0.62, (2, 200, 16): 1.25, (2, 200, 64): 1.34,
+    (5, 100, 1): 0.25, (5, 100, 4): 0.26, (5, 100, 16): 0.31,
+    (5, 500, 1): 1.79, (5, 500, 4): 2.56, (5, 500, 16): 2.71, (5, 500, 64): 3.38,
+    (10, 200, 1): 0.43, (10, 200, 4): 0.43, (10, 200, 16): 0.41,
+    (10, 1000, 1): 2.94, (10, 1000, 4): 3.31, (10, 1000, 16): 10.1, (10, 1000, 64): 4.77,
+}  # fmt: skip
+
 #: Runner / laptop time of the same run, for the ``trq`` estimate: the top of the 2-4x the
 #: runners took over the laptop on the cells measured on both (the SMAC note below).  A
 #: generous factor costs little here: a trq unit is estimated at under 3 minutes.
@@ -227,7 +253,8 @@ TRQ_RUNNER_FACTOR = 4.0
 #: coverage) are marked; every other cell extrapolates (:func:`run_seconds`).
 #: The ``s/run`` columns of a run's summary recalibrate it (``doc/dev/benchmarking.md``).  The ``trq`` row
 #: is not measured on a runner: an estimate
-#: ((:data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS`) x :data:`TRQ_RUNNER_FACTOR`).
+#: ((:data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS` +
+#: :data:`FAILURE_CANDIDATE_LAPTOP_SECONDS`) x :data:`TRQ_RUNNER_FACTOR`).
 RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
     "core": {
         (2, 40, 1): 1, (2, 40, 4): 2, (2, 40, 16): 1,
@@ -258,9 +285,10 @@ RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
         # 40 min; the runner took 2-4x the laptop's time on the cells measured on both.
         (5, 500, 1): 2400 * 2.5,
     },
-    # An ESTIMATE, not measured on a runner: the laptop p90s of all five specs x TRQ_RUNNER_FACTOR.
+    # An ESTIMATE, not measured on a runner: the laptop p90s of all seven specs x TRQ_RUNNER_FACTOR.
     "trq": {
-        k: math.ceil((v + CANDIDATE_LAPTOP_SECONDS[k]) * TRQ_RUNNER_FACTOR) for k, v in TRQ_LAPTOP_SECONDS.items()
+        k: math.ceil((v + CANDIDATE_LAPTOP_SECONDS[k] + FAILURE_CANDIDATE_LAPTOP_SECONDS[k]) * TRQ_RUNNER_FACTOR)
+        for k, v in TRQ_LAPTOP_SECONDS.items()
     },
 }  # fmt: skip
 
@@ -795,8 +823,9 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
     instances = _instances(unit.preset, unit.dim, unit.inst, unit.fam)
     if not instances:
         raise ValueError(f"{unit.id}: no instances")
+    specs = _strategies(unit.group)
     result = run_family_harness(
-        _strategies(unit.group),
+        specs,
         instances,
         budget_multiplier=unit.bm,
         base_seed=unit.seed,
@@ -817,6 +846,8 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
         "inst": unit.inst,
         "fam": unit.fam,
         "elapsed_s": time.time() - t0,
+        # Each spec's RNG identity (``seed_name or name``): the aggregate pairs a variant with its base spec on it.
+        "rng_identity": {s.name: s.rng_identity for s in specs},
         "result": result.to_dict(),
     }
 
@@ -1058,35 +1089,76 @@ def paired(a: Dict[Key, Obs], b: Dict[Key, Obs], metric: str, keys: Optional[Ite
     }
 
 
-def vs_headline(a: Dict[Key, Obs], headline: Dict[Key, Obs], keys: Iterable[Key]) -> Dict[str, Dict[str, Any]]:
-    """A secondary panobbgo spec against :data:`HEADLINE_SPEC`: per metric the :func:`paired` delta ``a - headline``.
+def vs_spec(a: Dict[Key, Obs], base: Dict[Key, Obs], keys: Iterable[Key]) -> Dict[str, Dict[str, Any]]:
+    """A secondary panobbgo spec against another panobbgo spec: per metric the :func:`paired` delta ``a - base``.
 
     On ``keys`` (the cell's common runs), so it pairs like every other delta
     of the cell.  The groups pair across jobs: a run's key is (seed,
     family, instance), its instance and CRN durations depend on the cell and
     seed only, and a spec's RNG streams on its ``seed_name``.  Each entry
     adds ``n_equal``, the pairs with exactly equal, **nonzero** values: a
-    variant that shares the headline's ``seed_name`` and does not act on a
-    cell (the §72 gate where it does not bind) is identical there, on the
-    same FP class (``cross_fp`` says whether the pairs span two).  Ties at
-    the score floor (both 0, e.g. ``aocc_time`` on a hard family at 20·d)
-    say nothing about that and are counted apart, ``n_zero_ties``; for a
-    spec on streams of its own, *equal* carries no meaning.  Descriptive:
+    variant that shares ``base``'s ``seed_name`` and does not act on a cell
+    (the §72 gate where it does not bind, a ``failure_aware`` arm on a run
+    without failures) is identical there, on the same FP class
+    (``cross_fp`` says whether the pairs span two).  Ties at the score
+    floor (both 0, e.g. ``aocc_time`` on a hard family at 20·d) say nothing
+    about that and are counted apart, ``n_zero_ties``; for a spec on
+    streams of its own, *equal* carries no meaning.  Descriptive:
     unadjusted, outside the Holm family.
     """
     keys = list(keys)
     out: Dict[str, Dict[str, Any]] = {}
     for m in METRICS:
-        st = paired(a, headline, m, keys)
+        st = paired(a, base, m, keys)
         ties = [
             _value(a[k], m)
             for k in keys
-            if k in a and k in headline and _value(a[k], m) is not None and _value(a[k], m) == _value(headline[k], m)
+            if k in a and k in base and _value(a[k], m) is not None and _value(a[k], m) == _value(base[k], m)
         ]
         st["n_equal"] = sum(1 for v in ties if v != 0.0)
         st["n_zero_ties"] = len(ties) - st["n_equal"]
         out[m] = st
     return out
+
+
+def vs_headline(a: Dict[Key, Obs], headline: Dict[Key, Obs], keys: Iterable[Key]) -> Dict[str, Dict[str, Any]]:
+    """A secondary panobbgo spec against :data:`HEADLINE_SPEC` (:func:`vs_spec` with the headline as base)."""
+    return vs_spec(a, headline, keys)
+
+
+def base_specs(payloads: Iterable[Dict[str, Any]]) -> Dict[str, str]:
+    """``spec -> base spec``: the specs that draw another spec's RNG streams (``seed_name``).
+
+    From each unit payload's ``rng_identity`` (``run`` records it); for a
+    spec a payload does not cover (a result file written before it was
+    recorded), from the harness registries (the specs as they are now).  A
+    spec whose identity is its own name has no base.  Two payloads that
+    disagree on a spec's identity are an error: its pairs would mix streams.
+    """
+    seen: Dict[str, str] = {}
+    unknown: Set[str] = set()
+    for d in payloads:
+        ids = d.get("rng_identity") or {}
+        for r in d["result"]["runs"]:
+            name = str(r["strategy_name"])
+            if name not in ids:
+                unknown.add(name)
+                continue
+            if seen.setdefault(name, str(ids[name])) != str(ids[name]):
+                raise ValueError(f"{name}: RNG identity {ids[name]!r} in {d['unit']}, {seen[name]!r} elsewhere")
+    if unknown - set(seen):
+        registry = _registry_rng_identity()
+        for name in unknown - set(seen):
+            seen[name] = registry.get(name, name)
+    return {n: i for n, i in seen.items() if i != n}
+
+
+def _registry_rng_identity() -> Dict[str, str]:
+    """``spec -> rng_identity`` of every panobbgo spec the groups can run (the fallback of :func:`base_specs`)."""
+    from panobbgo.harness_ioh import make_blocks_variant_strategies, make_ioh_strategies, make_trust_region_strategies
+
+    specs = [*make_ioh_strategies(), *make_trust_region_strategies(), *make_blocks_variant_strategies()]
+    return {s.name: s.rng_identity for s in specs}
 
 
 def holm(pvalues: Dict[str, float]) -> Dict[str, float]:
@@ -1188,8 +1260,10 @@ def summarize(
     cells: Dict[Cell, Dict[str, Dict[Key, Obs]]],
     planned_units: Optional[Sequence[str]] = None,
     core_names: Sequence[str] = (),
+    bases: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """The per-cell analysis (see :func:`aggregate`)."""
+    """The per-cell analysis (see :func:`aggregate`); ``bases``: :func:`base_specs`."""
+    bases = bases or {}
     expected = _expected(cells, planned_units, core_names)
     # The cell's instance set: every (family, instance) any strategy ran on it.
     instances = {c: {(k[1], k[2]) for obs in s.values() for k in obs} for c, s in cells.items()}
@@ -1290,6 +1364,12 @@ def summarize(
                 if name != HEADLINE_SPEC and HEADLINE_SPEC in strats
                 else None
             )
+            # Against the spec whose RNG streams it draws (its seed_name), when that spec ran here:
+            # the paired delta then carries only the option (descriptive, outside Holm).
+            base = bases.get(name)
+            has_base = base is not None and base != name and base in strats and not is_external(base)
+            r["base_spec"] = base if has_base else None
+            r["vs_base"] = vs_spec(strats[name], strats[base], common) if has_base else None
             r["vs"] = {e: {m: paired(strats[name], strats[e], m, common) for m in METRICS} for e in externals}
             r["vs_pool_best"] = {}
             for m in METRICS:
@@ -1365,7 +1445,13 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
     * ``vs_headline`` per secondary panobbgo spec: its paired delta against
       :data:`HEADLINE_SPEC` on the common runs, per metric (descriptive,
       unadjusted, outside the Holm family; :func:`vs_headline`).  This is
-      how an opt-in candidate (the §72 gate, the TRQ variants) is judged.
+      how an opt-in candidate (the §72 gate, the TRQ variants) is judged;
+    * ``vs_base`` (with ``base_spec``) per panobbgo spec that draws another
+      spec's RNG streams (its ``seed_name``, :func:`base_specs`) when that
+      spec ran in the cell: the same paired delta against it, so the delta
+      carries only the variant's option (``RoundRobin_TRQ_r05`` / ``_fa`` /
+      ``_aware`` − ``RoundRobin_TRQ``; for the variants of the headline spec
+      it repeats ``vs_headline``).  Descriptive, outside the Holm family.
 
     Every panobbgo spec other than :data:`HEADLINE_SPEC` is secondary, the
     opt-in candidates of the ``trq`` group (:data:`TRQ_SPECS`) included:
@@ -1406,7 +1492,7 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
         },
         "virtual": {"duration": DURATION, "sigma": SIGMA, "policy": "async", "durations": "crn"},
         "headline_spec": HEADLINE_SPEC,
-        "cells": summarize(cells, planned_units, [s.name for s in make_ioh_strategies()]),
+        "cells": summarize(cells, planned_units, [s.name for s in make_ioh_strategies()], base_specs(payloads)),
         "calibration": calibration_rows(calibration),
     }
 
@@ -1446,6 +1532,12 @@ def _fmt_delta(st: Optional[Dict[str, Any]]) -> str:
     lo, hi = st["ci_low"], st["ci_high"]
     ci = "" if math.isnan(lo) else f" [{lo:+.3f},{hi:+.3f}]"
     return f"{st['delta']:+.3f}{ci} {st['wins']}/{st['n_seeds']}"
+
+
+def _equal(st: Dict[str, Any]) -> str:
+    """The *equal* column of a :func:`vs_spec` entry: equal nonzero pairs / pairs, ties at 0, cross-FP mark."""
+    z = st["n_zero_ties"]
+    return f"{st['n_equal']}/{st['n_pairs']}{f' (+{z} at 0)' if z else ''}{' (FP)' if st['cross_fp'] else ''}"
 
 
 def _seeds(r: Dict[str, Any]) -> str:
@@ -1597,9 +1689,37 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             st = r["vs_headline"]
             lines.append(
                 f"| {name} | {label(n)} | {r['group']} | {st[hm]['n_pairs']} | {hm} | {_fmt_delta(st[hm])} | "
-                f"{_fmt_delta(st['aocc'])} | {st[hm]['n_equal']}/{st[hm]['n_pairs']}"
-                f"{f' (+{z} at 0)' if (z := st[hm]['n_zero_ties']) else ''}"
-                f"{' (FP)' if st[hm]['cross_fp'] else ''} |"
+                f"{_fmt_delta(st['aocc'])} | {_equal(st[hm])} |"
+            )
+    base_rows = [
+        (name, c, n, r)
+        for name, c in summary["cells"].items()
+        for n, r in sorted(c["strategies"].items(), key=lambda kv: (kv[1].get("base_spec") or "", kv[0]))
+        if r.get("vs_base") and r.get("base_spec") != hs
+    ]
+    if base_rows:
+        lines += [
+            "",
+            "## Variants − their base spec (same RNG streams, descriptive)",
+            "",
+            "Every panobbgo spec that draws another spec's RNG streams (its `seed_name`) against that spec, paired "
+            "over seeds on the cell's common runs, in the format of the table above: the delta carries only the "
+            "variant's option (e.g. `RoundRobin_TRQ_r05`, `RoundRobin_TRQ_fa`, `RoundRobin_TRQ_aware` − "
+            f"`RoundRobin_TRQ`).  Variants of `{hs}` are in the table above.  *equal*: a variant is identical "
+            "where its option does not act (a `failure_aware` arm on a run without failures) — on the same FP "
+            "class, `(FP)` marks pairs across two.  **Descriptive**: unadjusted, not part of the Holm family.  "
+            "The `RoundRobin_TRQ` specs are nearly seed-invariant at q = 1 (box-centre start), so their q = 1 "
+            "CIs carry little.",
+            "",
+            "| cell | spec | base | n (pairs) | metric | Δ metric [CI95] wins | Δ AOCC [CI95] wins | equal |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for name, c, n, r in base_rows:
+            hm = c["headline_metric"]
+            st = r["vs_base"]
+            lines.append(
+                f"| {name} | {label(n)} | {label(r['base_spec'])} | {st[hm]['n_pairs']} | {hm} | "
+                f"{_fmt_delta(st[hm])} | {_fmt_delta(st['aocc'])} | {_equal(st[hm])} |"
             )
     fams = sorted({f for c in summary["cells"].values() for r in c["strategies"].values() for f in r["per_family"]})
     lines += [

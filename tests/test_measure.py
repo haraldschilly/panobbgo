@@ -712,6 +712,7 @@ def test_trq_group_is_opt_in_and_runs_the_core_cells():
     # The plan's copy of the names (plan imports no panobbgo) is the registry's: the opt-in candidates are
     # the trust-region specs (§66, §69.5's RoundRobin_TRQ_r05) and the Blocks variants (§72's gate).
     assert ms.TRUST_REGION_SPECS == TRUST_REGION_NAMES and "RoundRobin_TRQ_r05" in ms.TRUST_REGION_SPECS
+    assert {"RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"} <= set(ms.TRUST_REGION_SPECS)  # §71's candidates
     assert ms.BLOCKS_VARIANT_SPECS == BLOCKS_VARIANT_NAMES == ("Blocks_warm_CMAES_JSO_dimbudget",)
     assert ms.TRQ_SPECS == TRUST_REGION_NAMES + BLOCKS_VARIANT_NAMES
     assert [s.name for s in make_trust_region_strategies(ms.TRUST_REGION_SPECS)] == list(ms.TRUST_REGION_SPECS)
@@ -723,6 +724,7 @@ def test_trq_group_is_opt_in_and_runs_the_core_cells():
     # Every candidate draws the RNG streams of the spec it is compared with (paired deltas carry the option).
     rng = {s.name: s.rng_identity for s in specs}
     assert rng["RoundRobin_TRQ_r05"] == rng["RoundRobin_TRQ"] == "RoundRobin_TRQ"
+    assert rng["RoundRobin_TRQ_fa"] == rng["RoundRobin_TRQ_aware"] == "RoundRobin_TRQ"
     assert rng["Blocks_warm_CMAES_JSO_dimbudget"] == rng["Blocks_warm_CMAES_JSO_TRQ"] == ms.HEADLINE_SPEC
     # 'all' is the measurement of record: core and the GP groups, not trq.
     assert "trq" not in ms.DEFAULT_GROUPS and set(ms.DEFAULT_GROUPS) | {"trq"} == set(ms.GROUPS)
@@ -745,11 +747,12 @@ def test_trq_group_is_opt_in_and_runs_the_core_cells():
     # The (estimated) cost table has every cell of the free grid.
     for u in units:
         assert (u.dim, u.bm * u.dim, u.q) in ms.RUNNER_SECONDS["trq"]
-    # The estimate covers all five specs: the first three's laptop times plus the two candidates'.
-    assert set(ms.CANDIDATE_LAPTOP_SECONDS) == set(ms.TRQ_LAPTOP_SECONDS) == set(ms.RUNNER_SECONDS["trq"])
-    for k, v in ms.TRQ_LAPTOP_SECONDS.items():
-        want = (v + ms.CANDIDATE_LAPTOP_SECONDS[k]) * ms.TRQ_RUNNER_FACTOR
-        assert want <= ms.RUNNER_SECONDS["trq"][k] < want + 1 and ms.CANDIDATE_LAPTOP_SECONDS[k] > 0
+    # The estimate covers all seven specs: the first three's laptop times plus the later candidates'.
+    tables = (ms.TRQ_LAPTOP_SECONDS, ms.CANDIDATE_LAPTOP_SECONDS, ms.FAILURE_CANDIDATE_LAPTOP_SECONDS)
+    assert all(set(t) == set(ms.RUNNER_SECONDS["trq"]) for t in tables)
+    for k in ms.TRQ_LAPTOP_SECONDS:
+        want = sum(t[k] for t in tables) * ms.TRQ_RUNNER_FACTOR
+        assert want <= ms.RUNNER_SECONDS["trq"][k] < want + 1 and all(t[k] > 0 for t in tables)
 
 
 def _with_trq(tmp: Path, planned: List[str], qs=(1, 4), bm=20) -> List[str]:
@@ -757,7 +760,9 @@ def _with_trq(tmp: Path, planned: List[str], qs=(1, 4), bm=20) -> List[str]:
 
     The §69.5 / §72 candidates: ``RoundRobin_TRQ_r05`` 0.10 below RoundRobin_TRQ on the ellipsoid and 0.05
     above on rastrigin, ``Blocks_warm_CMAES_JSO_dimbudget`` the headline spec's scores exactly (the gate does not
-    bind) except +0.1 on run 2 (rastrigin instance 0) of seed 7 at q = 4.
+    bind) except +0.1 on run 2 (rastrigin instance 0) of seed 7 at q = 4.  §71's candidates:
+    ``RoundRobin_TRQ_aware`` RoundRobin_TRQ's scores exactly (no failures), ``RoundRobin_TRQ_fa`` too except
+    +0.04 on rastrigin at q = 1.
     """
     payloads = []
     for q in qs:
@@ -776,6 +781,10 @@ def _with_trq(tmp: Path, planned: List[str], qs=(1, 4), bm=20) -> List[str]:
             if (q, seed) == (4, 7):
                 gated[2] = 0.35 + b
             scores["Blocks_warm_CMAES_JSO_dimbudget"] = gated
+            # The same expressions as RoundRobin_TRQ's row, so the values are bit-equal.
+            scores["RoundRobin_TRQ_aware"] = [0.95 + b, 0.95 + b, 0.30 + b, 0.30 + b]
+            fa = 0.04 if q == 1 else 0.0
+            scores["RoundRobin_TRQ_fa"] = [0.95 + b, 0.95 + b, 0.30 + b + fa, 0.30 + b + fa]
             payloads.append(_payload(unit, "trq-01", scores))
     _write(tmp, payloads)
     return planned
@@ -800,9 +809,10 @@ def test_aggregate_treats_trq_specs_as_secondary(tmp_path):
             assert r["vs_pool_best"]["aocc"]["n_seeds"] == 3 and r["complete"]
     md = ms.summary_markdown(summary)
     headline = md.split("## Headline\n", 1)[1].split("\n## ", 1)[0]
-    # The best other panobbgo spec is a trq spec (RoundRobin_TRQ: 0.625 + b against RoundRobin_CMAES' 0.5 + b).
+    # The best other panobbgo spec is a trq spec: RoundRobin_TRQ_fa (0.645 + b at q = 1; at q = 4 it ties RoundRobin_TRQ
+    # and _aware at 0.625 + b, and the tie goes to the larger name) against RoundRobin_CMAES' 0.5 + b.
     rows = [line for line in headline.splitlines() if line.startswith("| free/")]
-    assert len(rows) == 2 and all("| RoundRobin_TRQ 0." in line for line in rows)
+    assert len(rows) == 2 and all("| RoundRobin_TRQ_fa 0." in line for line in rows)
     assert "| RoundRobin_COBYQA |" in md and "| Blocks_warm_CMAES_JSO_TRQ |" in md  # the per-cell tables
 
 
@@ -916,7 +926,7 @@ def test_secondary_specs_get_a_paired_delta_against_the_headline(tmp_path):
     table = md.split(f"## Secondary panobbgo specs − {ms.HEADLINE_SPEC} (descriptive)\n", 1)[1].split("\n## ", 1)[0]
     assert "**Descriptive**" in table and "not part of the Holm family" in table
     rows_md = [line for line in table.splitlines() if line.startswith("| free/")]
-    assert len(rows_md) == 2 * 6
+    assert len(rows_md) == 2 * 8
     # core rows first, then trq; the metric column is the cell's headline metric.
     q1_rows = [line for line in rows_md if line.startswith("| free/d2/b20/q1 |")]
     assert q1_rows[0].startswith("| free/d2/b20/q1 | RoundRobin_CMAES | core | 12 | aocc |")
@@ -956,6 +966,79 @@ def test_vs_headline_counts_equal_pairs_on_the_given_keys():
     st = ms.vs_headline(other, head, keys)
     assert (st["aocc"]["n_pairs"], st["aocc"]["n_equal"], st["aocc"]["n_zero_ties"]) == (3, 2, 1)
     assert (st["aocc_time"]["n_pairs"], st["aocc_time"]["n_equal"], st["aocc_time"]["n_zero_ties"]) == (2, 1, 1)
+
+
+def test_variants_get_a_paired_delta_against_their_base_spec(tmp_path):
+    """A spec on another spec's RNG streams (``seed_name``) is paired with that spec: r05 / fa / aware − TRQ."""
+    planned = _with_trq(tmp_path, _grid(tmp_path))
+    summary = ms.aggregate(tmp_path, planned)
+    q1, q4 = (summary["cells"][f"free/d2/b20/q{q}"]["strategies"] for q in (1, 4))
+    for rows in (q1, q4):
+        # The synthetic payloads record no rng_identity: the registry's seed_name decides the base.
+        for n in ("RoundRobin_TRQ_r05", "RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"):
+            assert rows[n]["base_spec"] == "RoundRobin_TRQ" and set(rows[n]["vs_base"]) == set(ms.METRICS)
+        for n in ("Blocks_warm_CMAES_JSO_dimbudget", "Blocks_warm_CMAES_JSO_TRQ"):
+            assert rows[n]["base_spec"] == ms.HEADLINE_SPEC
+            assert rows[n]["vs_base"] == rows[n]["vs_headline"]  # the same pairs, the same numbers
+        # Specs on their own streams have no base; externals get no row at all.
+        for n in ("RoundRobin_TRQ", "RoundRobin_CMAES", "RoundRobin_COBYQA", ms.HEADLINE_SPEC):
+            assert rows[n]["base_spec"] is None and rows[n]["vs_base"] is None
+        assert all("vs_base" not in r for r in rows.values() if r["external"])
+    # r05: −0.10 on the ellipsoid, +0.05 on rastrigin, per seed −0.025.
+    st = q1["RoundRobin_TRQ_r05"]["vs_base"]["aocc"]
+    assert st["delta"] == pytest.approx(-0.025) and st["wins"] == 0 and st["n_pairs"] == 12
+    # aware: bit-identical everywhere; fa: +0.04 on rastrigin at q = 1 (+0.02 a seed), identical at q = 4.
+    for rows in (q1, q4):
+        aware = rows["RoundRobin_TRQ_aware"]["vs_base"]
+        assert all(aware[m]["delta"] == 0.0 and aware[m]["n_equal"] == 12 for m in ms.METRICS)
+    fa1, fa4 = q1["RoundRobin_TRQ_fa"]["vs_base"], q4["RoundRobin_TRQ_fa"]["vs_base"]
+    assert fa1["aocc"]["delta"] == pytest.approx(0.02) and fa1["aocc"]["wins"] == 3 and fa1["aocc"]["n_equal"] == 6
+    assert fa4["aocc_time"]["delta"] == 0.0 and fa4["aocc_time"]["n_equal"] == 12
+    # The Holm family and the pool do not move.
+    before = ms.aggregate(tmp_path, planned)
+    assert summary["cells"]["free/d2/b20/q1"]["headline"] == before["cells"]["free/d2/b20/q1"]["headline"]
+    md = ms.summary_markdown(summary)
+    table = md.split("## Variants − their base spec (same RNG streams, descriptive)\n", 1)[1].split("\n## ", 1)[0]
+    assert "**Descriptive**" in table and "not part of the Holm family" in table
+    rows_md = [line for line in table.splitlines() if line.startswith("| free/")]
+    # The three TRQ variants per cell; the headline's variants are in the vs-headline table only.
+    assert len(rows_md) == 2 * 3 and all("| RoundRobin_TRQ |" in line for line in rows_md)
+    [fa_q1] = [line for line in rows_md if line.startswith("| free/d2/b20/q1 | RoundRobin_TRQ_fa |")]
+    assert "| aocc | +0.020 " in fa_q1 and fa_q1.endswith("| 6/12 |")
+    [aware_q4] = [line for line in rows_md if line.startswith("| free/d2/b20/q4 | RoundRobin_TRQ_aware |")]
+    assert "| aocc_time | +0.000 " in aware_q4 and aware_q4.endswith("| 12/12 |")
+
+
+def test_base_specs_reads_the_recorded_rng_identity_and_falls_back_to_the_registry():
+    def payload(unit: str, ids: Optional[Dict[str, str]], names: Sequence[str]) -> dict:
+        d = _payload(unit, "s", {n: [0.5] * 4 for n in names})
+        if ids is not None:
+            d["rng_identity"] = ids
+        return d
+
+    recorded = payload(
+        "trq.free.b20.q1.d2.s42",
+        {"RoundRobin_TRQ": "RoundRobin_TRQ", "X_variant": "X", "RoundRobin_TRQ_fa": "RoundRobin_TRQ"},
+        ["RoundRobin_TRQ", "X_variant", "RoundRobin_TRQ_fa"],
+    )
+    old = payload("trq.free.b20.q4.d2.s42", None, ["RoundRobin_TRQ_r05", "Unknown_spec"])
+    bases = ms.base_specs([recorded, old])
+    # Recorded identities win; an old payload falls back to the registry; an unknown name has no base.
+    assert bases == {"X_variant": "X", "RoundRobin_TRQ_fa": "RoundRobin_TRQ", "RoundRobin_TRQ_r05": "RoundRobin_TRQ"}
+    # Two payloads that disagree on a spec's streams cannot be paired.
+    clash = payload("trq.free.b20.q4.d2.s7", {"X_variant": "Y"}, ["X_variant"])
+    with pytest.raises(ValueError, match="RNG identity"):
+        ms.base_specs([recorded, clash])
+
+
+def test_run_unit_records_each_specs_rng_identity(monkeypatch):
+    from panobbgo.harness_ioh import make_trust_region_strategies
+
+    specs = make_trust_region_strategies(["RoundRobin_TRQ", "RoundRobin_TRQ_aware"])
+    monkeypatch.setattr(ms, "_strategies", lambda group: specs)
+    payload = ms.run_unit(ms.Unit.parse("trq.free.b20.q4.d2.s42.i0.f0"), jobs=1)
+    assert payload["rng_identity"] == {"RoundRobin_TRQ": "RoundRobin_TRQ", "RoundRobin_TRQ_aware": "RoundRobin_TRQ"}
+    assert ms.base_specs([payload]) == {"RoundRobin_TRQ_aware": "RoundRobin_TRQ"}
 
 
 # ---------------------------------------------------------------------------

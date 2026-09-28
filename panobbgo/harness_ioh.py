@@ -73,7 +73,7 @@ Public surface
   record; :func:`make_cmaes_variant_strategies` — opt-in ``RoundRobin_CMAES``
   variants (§57: bound handling, first start, active CMA), selected by name;
   :func:`make_trust_region_strategies` — opt-in specs with the quadratic
-  trust-region arm (§66); :func:`make_blocks_variant_strategies` — opt-in
+  trust-region arm (§66, and §69.5's start radius); :func:`make_blocks_variant_strategies` — opt-in
   ``Blocks_warm_CMAES_JSO`` variants (§72's dim/budget gate).
 * :func:`run_ioh_harness` — main entry point.
 """
@@ -997,7 +997,27 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 #: SciPy's COBYQA alone (§66.1's ``RR_COBYQA``, the other model-based
 #: candidate of §66.5).  Not in :func:`make_ioh_strategies`; they join only
 #: when named (:func:`make_trust_region_strategies`).
-TRUST_REGION_NAMES: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ", "RoundRobin_COBYQA")
+#:
+#: ``RoundRobin_TRQ_r05`` is ``RoundRobin_TRQ`` started at
+#: ``radius_init=0.5`` (the arm's ``radius_max``, so the constructor accepts
+#: it; the default is 0.1).  Evidence: DISCOVERY §69.1 — on the ±5 family
+#: boxes COBYQA's first design spans 0.5 of each axis, TRQ's 0.1, and at 0.5
+#: RR_TRQ fits Levy's funnel instead of a ripple (levy_embed d5/q1
+#: 0.17 → 0.92, COBYQA 0.932); §69.5 — against the §69 fix alone it gains on
+#: the wide preset (d2/q4 +0.059 [+0.014, +0.103] 5/5, d5/q4 +0.049
+#: [+0.022, +0.075] 5/5) and at 100·d q1 on free (+0.055/+0.048/+0.064 at
+#: d 2/5/10), but loses at free d5/20·d/q4 (−0.037 n.s.) and on
+#: step_ellipsoid / bent_cigar / styblinski_tang_sep
+#: (``planning/results/2026-09-27-trq-diagnosis/tables.md``).  One constant
+#: chosen after seeing those cells, so a fresh-seed candidate, not a
+#: default (§69.5).  It shares ``RoundRobin_TRQ``'s ``seed_name``, so the
+#: paired delta between the two carries only the start radius.
+TRUST_REGION_NAMES: Tuple[str, ...] = (
+    "RoundRobin_TRQ",
+    "Blocks_warm_CMAES_JSO_TRQ",
+    "RoundRobin_COBYQA",
+    "RoundRobin_TRQ_r05",
+)
 
 
 def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
@@ -1009,8 +1029,10 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
     arms it shares draw the same keyed RNG streams.  ``RoundRobin_COBYQA`` is
     :class:`~panobbgo.heuristics.cobyqa.COBYQA` alone with its defaults, as
     §66.1 ran it (``RR_COBYQA``: box-centre start, no restart, so
-    seed-invariant).  ``names`` restricts the list (unknown names are
-    ignored); ``None`` returns all of :data:`TRUST_REGION_NAMES`.
+    seed-invariant).  ``RoundRobin_TRQ_r05`` is ``RoundRobin_TRQ`` with
+    ``radius_init=0.5`` (DISCOVERY §69.5) and ``seed_name="RoundRobin_TRQ"``.
+    ``names`` restricts the list (unknown names are ignored); ``None``
+    returns all of :data:`TRUST_REGION_NAMES`.
     """
     from panobbgo.heuristics import COBYQA, TrustRegionQuadratic
     from panobbgo.strategies import StrategyRoundRobin
@@ -1035,6 +1057,13 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
             name="RoundRobin_COBYQA",
             strategy_class=StrategyRoundRobin,
             heuristics=[(COBYQA, {})],
+        ),
+        # The §69.5 start radius (see TRUST_REGION_NAMES), on RoundRobin_TRQ's RNG streams.
+        StrategySpec(
+            name="RoundRobin_TRQ_r05",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(TrustRegionQuadratic, {"radius_init": 0.5})],
+            seed_name="RoundRobin_TRQ",
         ),
     ]
     wanted = None if names is None else set(names)

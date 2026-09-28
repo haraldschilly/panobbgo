@@ -324,8 +324,8 @@ gh workflow run measure.yml                                     # the full defau
 gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4 \
     -f extra_units='SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'   # smoke + calibration
 gh workflow run measure.yml -f presets=failure                  # the failure preset
-gh workflow run measure.yml -f seeds=911,912,913,914,915 \
-    -f groups=core,qLogEI,TuRBO1,SMAC,trq                       # the opt-in §66 specs, fresh seeds
+gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 \
+    -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq   # the opt-in candidates' confirmation (TODO)
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated runner-hours per group
 ```
@@ -352,9 +352,13 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     NGOpt, Optuna CmaEs/TPE and Py-BOBYQA — runs in one process; the GP
     baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.
     `groups=all` is these four.  The **opt-in `trq` group** (never in
-    `all`) runs the DISCOVERY §66 candidates
-    (`harness_ioh.make_trust_region_strategies`: `RoundRobin_TRQ`,
-    `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`) on exactly the core
+    `all`; the name is historical) runs the **opt-in candidates**: the
+    trust-region specs (`harness_ioh.make_trust_region_strategies`:
+    `RoundRobin_TRQ`, `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`,
+    DISCOVERY §66; `RoundRobin_TRQ_r05`, the §69.5 start radius 0.5 on
+    `RoundRobin_TRQ`'s RNG streams) and the `Blocks_warm_CMAES_JSO` variants
+    (`make_blocks_variant_strategies`: `Blocks_warm_CMAES_JSO_dimbudget`,
+    §72's dim/budget gate on the headline spec's RNG streams) on exactly the core
     cells and seeds, with the same instances and CRN durations (the duration
     stream is per cell, not per process), in `trq-NN` shards packed like
     core's.  `all` stays the measurement of record so the default grid, its
@@ -399,11 +403,13 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     measurements of its own: its estimates are the free preset's numbers
     for the same (group, d, budget, q).
     The **`trq` row is an estimate**, not a runner measurement: the laptop
-    p90 of one run (its three specs on one instance, seed 42, 15 runs per
-    cell, 4 processes; `TRQ_LAPTOP_SECONDS`, 0.8–8 s) times
+    p90 of one run (seed 42, 15 runs per cell, 4 processes, niced) of the
+    first three specs on one instance (`TRQ_LAPTOP_SECONDS`, 0.8–8 s) plus
+    that of the two later candidates (`CANDIDATE_LAPTOP_SECONDS`, 0.07–2.7 s,
+    measured 2026-09-28; `RoundRobin_TRQ_r05` is most of it), times
     `TRQ_RUNNER_FACTOR` = 4 (the top of the 2–4× runner/laptop ratio seen
-    elsewhere), so 4–32 s a run.  Five seeds of the free grid are 105 units
-    in 5 shards, about 2 estimated runner-hours; the default grid does not
+    elsewhere), so 4–43 s a run.  Five seeds of the free grid are 105 units
+    in 5 shards, about 2.5 estimated runner-hours; the default grid does not
     change (140 shards).  Recalibrate it from the first run's `s/run`.
 *   **Cost.**  `plan` packs the units into shards of at most 90 estimated
     minutes (`--target-minutes`; core shards 30) on a 4-core runner and
@@ -436,6 +442,17 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         (`summary.json`: `ex_ellipsoid` per cell).  Unadjusted and outside
         the Holm family, which stays the headline spec vs the pool's best
         over all families.
+    *   **Secondary specs against the headline spec** (descriptive): every
+        other panobbgo spec, the `trq` group's opt-in candidates included,
+        paired over seeds with `Blocks_warm_CMAES_JSO` on the cell's common
+        runs, on the headline metric and on AOCC (t-CI95, wins/seeds, and
+        *equal*: the pairs with exactly equal values, so a variant that shares
+        the headline's `seed_name` shows where its option acts at all;
+        `summary.json`: `vs_headline` per spec).  The groups pair across
+        jobs: a key is (seed, family, instance), the instances and CRN
+        durations depend on the cell and seed only, the RNG streams on the
+        `seed_name`.  Unadjusted and outside the Holm family.  This table
+        judges the §72 gate and the TRQ variants.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
         every q cell with no crashed or timed-out run (a q cell no external
         ran, e.g. only `trq`, does not count and has an empty pool itself).  Best-of is taken over

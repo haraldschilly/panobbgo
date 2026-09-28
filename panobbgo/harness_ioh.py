@@ -73,7 +73,8 @@ Public surface
   record; :func:`make_cmaes_variant_strategies` — opt-in ``RoundRobin_CMAES``
   variants (§57: bound handling, first start, active CMA), selected by name;
   :func:`make_trust_region_strategies` — opt-in specs with the quadratic
-  trust-region arm (§66).
+  trust-region arm (§66); :func:`make_blocks_variant_strategies` — opt-in
+  ``Blocks_warm_CMAES_JSO`` variants (§72's dim/budget gate).
 * :func:`run_ioh_harness` — main entry point.
 """
 
@@ -848,13 +849,9 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 # -0.007, which made it the default's `False`, but the spec
                 # states what it ran.
                 "warm_start_only_if_better": False,
-                # DISCOVERY §72: the regime table's dim/budget rows, no noise
-                # oracle.  Unconstrained, d >= 10, <= 500·d and at most
-                # λ_default workers -> CMA-ES alone; everything else as before.
-                # It turned the d10/100·d/q4 Holm loss to TuRBO1 into a lead
-                # on the §67 seeds (+0.006, 10/12; not blind — on fresh seeds
-                # 2001-2005 +0.004 vs the old spec, n.s.).
-                "regime_gate": "dim-budget",
+                # DISCOVERY §72's dim/budget gate is *not* on here (Harald,
+                # 2026-09-28: opt-in until a fresh-seed runner confirmation);
+                # it is the opt-in ``Blocks_warm_CMAES_JSO_dimbudget``.
                 # DISCOVERY §72: before the first result, workers the arms
                 # cannot fill take the other arm's queue, then a Latin
                 # hypercube.  Binds only where the arms' first generations are
@@ -894,6 +891,46 @@ def make_ioh_strategies() -> List[StrategySpec]:
             },
             seed_name="Blocks_warm_CMAES_JSO",
         ),
+    ]
+
+
+#: Opt-in ``Blocks_warm_CMAES_JSO`` variants: spec name -> the strategy
+#: kwargs it adds to the portfolio's ``config_overrides``.
+#: ``Blocks_warm_CMAES_JSO_dimbudget`` is DISCOVERY §72's dim/budget gate
+#: (the regime table's dimension / budget rows, no noise oracle:
+#: unconstrained, d >= 10, <= 500·d and at most λ_default workers -> CMA-ES
+#: alone).  On the §67 seeds it turned the d10/100·d/q4 Holm loss to TuRBO1
+#: into a lead (+0.006, 10/12; not blind); on fresh seeds 2001-2005 it was
+#: +0.004 vs the ungated spec, n.s.  Opt-in until a fresh-seed runner
+#: confirmation (Harald, 2026-09-28); :func:`make_blocks_variant_strategies`.
+BLOCKS_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
+    "Blocks_warm_CMAES_JSO_dimbudget": {"regime_gate": "dim-budget"},
+}
+
+#: Spec names of :data:`BLOCKS_VARIANT_OPTIONS`, in registry order.
+BLOCKS_VARIANT_NAMES: Tuple[str, ...] = tuple(BLOCKS_VARIANT_OPTIONS)
+
+
+def make_blocks_variant_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """``Blocks_warm_CMAES_JSO`` with :data:`BLOCKS_VARIANT_OPTIONS` added — opt-in A/B arms.
+
+    Each variant shares ``seed_name="Blocks_warm_CMAES_JSO"``, so a paired
+    delta to the portfolio carries only the option.  ``names`` restricts the
+    list (unknown names are ignored); ``None`` returns all of them.
+    """
+    blocks = next(s for s in make_ioh_strategies() if s.name == "Blocks_warm_CMAES_JSO")
+    wanted = None if names is None else set(names)
+    return [
+        StrategySpec(
+            name=name,
+            strategy_class=blocks.strategy_class,
+            heuristics=list(blocks.heuristics),
+            analyzers=list(blocks.analyzers),
+            config_overrides={**blocks.config_overrides, **kw},
+            seed_name="Blocks_warm_CMAES_JSO",
+        )
+        for name, kw in BLOCKS_VARIANT_OPTIONS.items()
+        if wanted is None or name in wanted
     ]
 
 
@@ -990,9 +1027,7 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
             strategy_class=blocks.strategy_class,
             heuristics=list(blocks.heuristics) + [(TrustRegionQuadratic, {})],
             analyzers=list(blocks.analyzers),
-            # The portfolio's config, its dim/budget gate included: the gate is
-            # never applied here, since the TR arm plays no role of the regime
-            # table (DISCOVERY §72).
+            # The portfolio's config (first-round fill included, DISCOVERY §72).
             config_overrides=dict(blocks.config_overrides),
             seed_name="Blocks_warm_CMAES_JSO",
         ),

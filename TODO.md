@@ -149,13 +149,15 @@ extra).
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family; a local in-sample screen is §71, the q-sweep on runners
           with the `trq` group is still open).
-      §67's two Holm losses are addressed in §72 (PR, unmerged pending
-      Harald — see "Defaults" in §5): d10/q4 by `regime_gate="dim-budget"`
-      (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), d2/q64 by
-      `first_round_fill`; on the §67 seeds (not blind) Holm 4/2/3 → 5/0/4.
+      §67's two Holm losses are addressed in §72: d2/q64 by
+      `first_round_fill` (default), d10/q4 by `regime_gate="dim-budget"`
+      (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), opt-in as
+      `Blocks_warm_CMAES_JSO_dimbudget` (Harald, 2026-09-28, §72.8); on the
+      §67 seeds (not blind) both together: Holm 4/2/3 → 5/0/4.
       Next: confirm on runners with a fresh seed list and the GP groups
-      (100·d q 4/64 at d 2/5/10, plus the 20·d/q1 cells the change moves,
-      §72.5).
+      (100·d q 4/64 at d 2/5/10, plus the 20·d/q1 cells the gate moves,
+      §72.5), the gated variant against the portfolio; then decide the
+      gate's default.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at
@@ -253,12 +255,11 @@ Cheap-track items, in GOAL §2c order:
 - [ ] **Defaults** `regime_gate="oracle:clean"` and `block_evals="auto"` for
       `Blocks_warm_CMAES_JSO` (§45.1, §46.4): only after the suite is
       broadened and the question re-run there (decision of 2026-09-13).
-      **§72's PR sets `regime_gate="dim-budget"`** (no oracle; one row:
-      unconstrained d ≥ 10, ≤ 500·d, q ≤ λ_default → CMA-ES alone) **and
-      `first_round_fill=True` as the spec's defaults** — narrower than the
-      oracle gate, but a regime-gate default: Harald confirms or rejects
-      before it merges.  Not measured with it: the cheap track at d ≥ 10
-      (q = 1 batteries), where the spec becomes CMA-ES alone.
+      §72 (decided 2026-09-28): `first_round_fill=True` is the default;
+      `regime_gate="dim-budget"` (no oracle; one row: unconstrained
+      d ≥ 10, ≤ 500·d, q ≤ λ_default → CMA-ES alone) stays opt-in
+      (`Blocks_warm_CMAES_JSO_dimbudget`) until a fresh-seed runner
+      confirmation; not measured with it: the cheap track at d ≥ 10.
 - [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`,
       extended by roadmap §3.3): d 10/20, more instances, full BBOB instead of
       MA-BBOB mixtures, constrained/noisy as own axes; tiered (small screen,

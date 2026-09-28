@@ -396,11 +396,9 @@ def test_harness_spec_is_registered_and_buildable():
     assert spec.config_overrides["regime_gate"] == "oracle"
     assert spec.rng_identity == portfolio.rng_identity  # one RNG stream: the delta is the gate alone
     assert spec.heuristics == portfolio.heuristics
-    # the portfolio carries the non-oracle gate (DISCOVERY §72); everything else is shared
-    assert portfolio.config_overrides["regime_gate"] == "dim-budget"
-    assert {k: v for k, v in spec.config_overrides.items() if k != "regime_gate"} == {
-        k: v for k, v in portfolio.config_overrides.items() if k != "regime_gate"
-    }
+    # the portfolio carries no gate (§72's dim/budget gate is opt-in); everything else is shared
+    assert "regime_gate" not in portfolio.config_overrides
+    assert {k: v for k, v in spec.config_overrides.items() if k != "regime_gate"} == portfolio.config_overrides
     # unresolved, the strategy refuses to guess the class
     with pytest.raises(ValueError, match="names no class"):
         spec.create_strategy(Rosenbrock(dim=2), seed=1, max_eval=100)

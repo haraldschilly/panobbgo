@@ -112,9 +112,11 @@ from panobbgo.harness_ioh import (
     IOHHarnessResult,
     IOHMultiSeedResult,
     ALL_BBOB_FIDS,
+    BLOCKS_VARIANT_NAMES,
     CMAES_VARIANT_NAMES,
     TRUST_REGION_NAMES,
     make_bbob_battery,
+    make_blocks_variant_strategies,
     make_cmaes_variant_strategies,
     make_full_battery,
     make_highdim_battery,
@@ -233,6 +235,8 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
         strats.extend(make_cmaes_variant_strategies(args.strategies))
         # So do the §66 trust-region specs.
         strats.extend(make_trust_region_strategies(args.strategies))
+        # And the Blocks variants (§72's dim/budget gate).
+        strats.extend(make_blocks_variant_strategies(args.strategies))
     try:
         check_baseline_selection(args.strategies, args.baselines)
         if args.baselines:
@@ -827,6 +831,8 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         + ", ".join(CMAES_VARIANT_NAMES)
         + ") and the trust-region specs of §66 ("
         + ", ".join(TRUST_REGION_NAMES)
+        + ") and the Blocks variants of §72 ("
+        + ", ".join(BLOCKS_VARIANT_NAMES)
         + ") join only when named here.",
     )
     run_p.add_argument("--seed", type=int, default=42)

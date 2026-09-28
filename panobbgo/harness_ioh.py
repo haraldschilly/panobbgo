@@ -1006,12 +1006,14 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 #: 0.17 → 0.92, COBYQA 0.932); §69.5 — against the §69 fix alone it gains on
 #: the wide preset (d2/q4 +0.059 [+0.014, +0.103] 5/5, d5/q4 +0.049
 #: [+0.022, +0.075] 5/5) and at 100·d q1 on free (+0.055/+0.048/+0.064 at
-#: d 2/5/10), but loses at free d5/20·d/q4 (−0.037 n.s.) and on
-#: step_ellipsoid / bent_cigar / styblinski_tang_sep
-#: (``planning/results/2026-09-27-trq-diagnosis/tables.md``).  One constant
-#: chosen after seeing those cells, so a fresh-seed candidate, not a
-#: default (§69.5).  It shares ``RoundRobin_TRQ``'s ``seed_name``, so the
-#: paired delta between the two carries only the start radius.
+#: d 2/5/10), but loses at free d5/20·d/q4 (−0.037 n.s.) and d10/100·d/q4
+#: (−0.016), and on the wide preset's step_ellipsoid / bent_cigar /
+#: styblinski_tang_sep (``planning/results/2026-09-27-trq-diagnosis/tables.md``).
+#: One constant chosen after seeing those cells, so a fresh-seed candidate,
+#: not a default (§69.5).  ``radius_init`` is also the restart radius and
+#: the tabu-ball radius, so at 0.5 restarts change too.  It shares
+#: ``RoundRobin_TRQ``'s ``seed_name``, so the paired delta between the two
+#: carries only ``radius_init``.
 TRUST_REGION_NAMES: Tuple[str, ...] = (
     "RoundRobin_TRQ",
     "Blocks_warm_CMAES_JSO_TRQ",
@@ -1030,7 +1032,8 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
     :class:`~panobbgo.heuristics.cobyqa.COBYQA` alone with its defaults, as
     §66.1 ran it (``RR_COBYQA``: box-centre start, no restart, so
     seed-invariant).  ``RoundRobin_TRQ_r05`` is ``RoundRobin_TRQ`` with
-    ``radius_init=0.5`` (DISCOVERY §69.5) and ``seed_name="RoundRobin_TRQ"``.
+    ``radius_init=0.5`` (the start and restart radius and the tabu-ball
+    size; DISCOVERY §69.5) and ``seed_name="RoundRobin_TRQ"``.
     ``names`` restricts the list (unknown names are ignored); ``None``
     returns all of :data:`TRUST_REGION_NAMES`.
     """

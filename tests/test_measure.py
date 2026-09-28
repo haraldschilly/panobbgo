@@ -937,6 +937,15 @@ def test_vs_headline_counts_equal_pairs_on_the_given_keys():
     assert st["aocc"]["delta"] == pytest.approx((0.1 + 0.0) / 2)
     st = ms.vs_headline(other, head, [(2, "a", 0)])
     assert st["aocc_time"]["n_equal"] == 1 and st["aocc_time"]["delta"] == 0.0
+    # Ties at the score floor are not "equal"; a missing time score (None) and a key the spec lacks drop out.
+    head[(4, "a", 0)], other[(4, "a", 0)] = obs(0.0), obs(0.0)
+    head[(5, "a", 0)] = obs(0.7)
+    other[(5, "a", 0)] = ms.Obs(aocc=0.7, aocc_time=None, shard="s", fp="f", error=None, elapsed_s=1.0)
+    head[(6, "a", 0)] = obs(0.2)  # the spec has no such run
+    keys = [(4, "a", 0), (5, "a", 0), (6, "a", 0), (2, "a", 0)]
+    st = ms.vs_headline(other, head, keys)
+    assert (st["aocc"]["n_pairs"], st["aocc"]["n_equal"], st["aocc"]["n_zero_ties"]) == (3, 2, 1)
+    assert (st["aocc_time"]["n_pairs"], st["aocc_time"]["n_equal"], st["aocc_time"]["n_zero_ties"]) == (2, 1, 1)
 
 
 # ---------------------------------------------------------------------------

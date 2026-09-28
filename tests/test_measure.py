@@ -924,6 +924,16 @@ def test_secondary_specs_get_a_paired_delta_against_the_headline(tmp_path):
     assert gated.endswith("| 12/12 |") and "+0.000" in gated
     [gated4] = [line for line in rows_md if line.startswith("| free/d2/b20/q4 | Blocks_warm_CMAES_JSO_dimbudget |")]
     assert "| aocc_time |" in gated4 and gated4.endswith("| 11/12 |") and " 1/3 |" in gated4
+    # Ties at 0 are shown apart; pairs across FP classes are marked.
+    q4c = summary["cells"]["free/d2/b20/q4"]
+    st = q4c["strategies"]["Blocks_warm_CMAES_JSO_dimbudget"]["vs_headline"]
+    st["aocc_time"].update(n_equal=10, n_zero_ties=1, cross_fp=True)
+    [marked] = [
+        line
+        for line in ms.summary_markdown(summary).splitlines()
+        if line.startswith("| free/d2/b20/q4 | Blocks_warm_CMAES_JSO_dimbudget |")
+    ]
+    assert marked.endswith("| 10/12 (+1 at 0) (FP) |")
     # Without the trq group the core secondaries still get the table.
     assert "## Secondary panobbgo specs" in ms.summary_markdown(before)
 

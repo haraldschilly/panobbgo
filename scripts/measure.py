@@ -1582,8 +1582,8 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             f"Every other panobbgo spec (the opt-in candidates of the `trq` group too) against `{hs}`, paired over "
             "seeds on the cell's common runs, on the headline metric and on AOCC (at q = 1 they are the same).  "
             "This is where an opt-in candidate is judged against the spec it would replace or join.  "
-            "*equal*: pairs with exactly equal, nonzero headline-metric values (ties at 0 are left out); "
-            "it means something only for a variant sharing the headline's `seed_name` (`Blocks_warm_CMAES_JSO_*`, "
+            "*equal*: pairs with exactly equal, nonzero headline-metric values (ties at 0 are shown apart, `+k at 0`); "
+            "it means something only for a variant sharing the headline's `seed_name` (`Blocks_warm_CMAES_JSO_dimbudget`, "
             "`RegimeGate_oracle`), which is identical where its option does not act — on the same FP class: "
             "`(FP)` marks pairs across two FP classes, where equal runs may differ in the last bits.  "
             "**Descriptive**: unadjusted, not part of the Holm family.  The `RoundRobin_TRQ` specs are nearly "
@@ -1598,6 +1598,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             lines.append(
                 f"| {name} | {label(n)} | {r['group']} | {st[hm]['n_pairs']} | {hm} | {_fmt_delta(st[hm])} | "
                 f"{_fmt_delta(st['aocc'])} | {st[hm]['n_equal']}/{st[hm]['n_pairs']}"
+                f"{f' (+{z} at 0)' if (z := st[hm]['n_zero_ties']) else ''}"
                 f"{' (FP)' if st[hm]['cross_fp'] else ''} |"
             )
     fams = sorted({f for c in summary["cells"].values() for r in c["strategies"].values() for f in r["per_family"]})

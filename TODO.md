@@ -181,10 +181,13 @@ extra).
       paired Δ against `Blocks_warm_CMAES_JSO` on `aocc_time` (the
       `vs_headline` table) has a CI95 above 0 and its Δ against the pool's
       best has a CI95 not entirely below 0, and it is identical in every
-      other cell (*equal* = n where no score is 0).  The 9-cell Holm
+      other cell (*equal* + ties at 0 = n; a cell marked `(FP)` may instead
+      show Δ ≈ 0), and no CI95 is entirely below 0 in the supplements'
+      binding cells (100·d d10/q1; 20·d d10 q1/q4 if run).  The 9-cell Holm
       family stays the headline spec vs the pool's best.
       `RoundRobin_TRQ_r05` and the other trq specs are read descriptively
-      (against `RoundRobin_TRQ` and the headline spec); no default rides
+      (against the headline spec in the summary; r05 − `RoundRobin_TRQ`
+      from the unit files, same `seed_name`); no default rides
       on them.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):

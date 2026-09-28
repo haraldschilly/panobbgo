@@ -365,7 +365,7 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     one aggregate, so aggregate a run whose Holm family is pre-declared on
     its own battery by itself.  Seeds used so far: 20260910 (default),
     20260927 (§69.4's fresh wide battery, local), 20260928 (the failure
-    confirmation, TODO §2 (d)); the sealed seed is refused.  Pick an unused
+    confirmation, TODO §2 (d)); the sealed seed is refused when a unit runs (the library's check).  Pick an unused
     one for the next blind test.
 *   **Units and shards.**  A unit is one strategy group on one (preset,
     bm, q, dim) cell, one battery and one base seed, optionally one instance index of

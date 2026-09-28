@@ -1125,10 +1125,16 @@ def _fingerprint(problem, n_points: int = 64) -> tuple:
 
 def test_battery_seed_constants_match_the_library():
     from panobbgo.harness_families import DEFAULT_BATTERY_SEED
-    from panobbgo.sealed import SEALED_FAMILY_SEED
 
     assert ms.DEFAULT_BATTERY_SEED == DEFAULT_BATTERY_SEED
-    assert ms.SEALED_FAMILY_SEED == SEALED_FAMILY_SEED
+
+
+def test_the_sealed_battery_seed_is_refused_when_a_unit_runs():
+    """``plan`` does not know the sealed seed (its ids live in ``panobbgo.sealed`` only); the library refuses it."""
+    from panobbgo.sealed import SEALED_FAMILY_SEED
+
+    with pytest.raises(ValueError, match="sealed"):
+        ms._instances("free", 2, battery=SEALED_FAMILY_SEED)
 
 
 def test_default_battery_is_bit_identical_to_the_fixed_battery():
@@ -1166,13 +1172,10 @@ def test_battery_seed_in_the_unit_id():
         "core.free-.b20.q1.d2.s42",
         "core.free--5.b20.q1.d2.s42",
         "core.free-x.b20.q1.d2.s42",
-        f"core.free-{ms.SEALED_FAMILY_SEED}.b20.q1.d2.s42",  # never a development battery
         "core.nope-5.b20.q1.d2.s42",
     ):
         with pytest.raises(ValueError):
             ms.Unit.parse(bad)
-    with pytest.raises(ValueError):
-        ms.battery_seed(str(ms.SEALED_FAMILY_SEED))
     with pytest.raises(ValueError):
         ms.battery_seed("-1")
     with pytest.raises(ValueError, match="--battery-seed: not an integer"):

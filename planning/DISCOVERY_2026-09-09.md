@@ -5880,8 +5880,8 @@ GitHub release asset (`gh release upload <tag> labels.csv.gz`), not in git.
 > (the bandwidth cap, 71.2) was changed once, after a unit test (a partial
 > first run with the old cap, d2 q1, 4 seeds, had been looked at — TRQ +0.049,
 > the others within noise — and was discarded).  No claim about
-> unseen problems.  Numbering: §67 stays
-> reserved.
+> unseen problems.  §67 (the 12-seed write-up) was merged after this
+> section was numbered.
 
 **Question.**  Roadmap §4 D (Harald, 2026-09-26): failure regions ("poison
 zones") where the objective crashes, returns NaN or times out are modelled,
@@ -5964,7 +5964,11 @@ points, α = 1 a success pseudo-count; `in_poison(x)` is `p ≥ 0.5`.
   objectives); a zone needs several failures close together.
 * **Cheap:** distances to the failures first (the repeat rule reuses them),
   to the successes only for a query within reach of one; growing buffers;
-  the guard is amortised (exact up to 50 failures, then every +10 %).  A
+  the guard is amortised (exact on every change up to 50 failures and while
+  its share is above 0.8 · `max_share`, otherwise every +10 % of failures or
+  points — successes can raise the share too, so far from the threshold a
+  cached share may lag; a first amortised version, refreshed on failures
+  only, stayed armed at a probe share of 0.535 in the review).  A
   one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms (d = 10,
   n = 1000), 0.3 ms at n = 10 000; a guard evaluation 1–110 ms (laptop).
   With no failure `p_fail` is zeros without any work — a run without
@@ -6023,14 +6027,21 @@ half-space along one variable".
 
 **Erratum (review of #388).**  The first version of the poisoned-step
 shrink changed the radius in the middle of a proposal and read the model
-in the new units: the retried step was twice too long for its radius and
-carried the full-radius predicted reduction (a unit test reproduced pred
-0.640 against the model's 0.390).  Fixed (`_step(..., r_model)`), with a
+in the new units: the retried step had the right length but was the wrong
+point — the full-radius minimiser compressed to half its length instead of
+the minimiser in the half-radius region — and it carried the full-radius
+predicted reduction (the review reproduced pred 0.640 against the model's
+0.390 at that point).  Fixed (`_step(..., r_model)`), with a
 unit test on the retried step; the TRQ `+fm` / `+filter` / `+aware` cells
 and the `Random+fm` / `Random_NM+fm` cells (the relay's refill, above)
-were re-run on the fixed code and every number in 71.4 is from the re-run.
-The first run had TRQ+fm at +0.038 ± 0.013 (d5 q1 +0.081, ellipsoid d5 q1
-+0.140); the others moved by at most 0.001.
+were re-run on the fixed code.  The first run had TRQ+fm at +0.038 ± 0.013
+(d5 q1 +0.081, ellipsoid d5 q1 +0.140); the others moved by at most 0.001.
+A second review fix made the "whole box" guard exact near its threshold
+(71.2); it changes the filter's decisions in a few runs, so every arm with
+the filter (`+fm`, `+filter`) was re-run once more on the final code: 227
+to 240 of 240 records per arm identical, every table cell within 0.003 of
+the previous run.  Every number in 71.4 is from this last run (`+aware` has
+no filter and is from the run before).
 
 A first `failure_aware` TRQ that also treated every point within 0.3 radii
 (geometry) or 10⁻³ radii (steps) of a failure as taken lost 0.36 AOCC on
@@ -6047,30 +6058,32 @@ instances, mean ± 95 % t half-width over 5 seeds, seeds up in brackets.
 
 | arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
 |---|---|---|---|---|---|
-| RoundRobin_TRQ+fm | −0.495 ± 0.023 | −0.181 ± 0.045 | −0.649 ± 0.008 | −0.153 ± 0.048 | −0.370 ± 0.017 |
-| RoundRobin_TRQ+aware | −0.487 ± 0.038 | −0.161 ± 0.061 | −0.618 ± 0.010 | −0.137 ± 0.039 | −0.351 ± 0.016 |
-| RoundRobin_TRQ+filter | −0.009 ± 0.015 | −0.040 ± 0.026 | 0.000 | −0.032 ± 0.032 | −0.020 ± 0.011 |
-| RoundRobin_Random+fm | −0.077 ± 0.025 | −0.089 ± 0.014 | −0.031 ± 0.014 | −0.031 ± 0.020 | −0.057 ± 0.008 |
-| RoundRobin_Random_NM+fm | −0.078 ± 0.024 | −0.081 ± 0.020 | −0.034 ± 0.032 | −0.029 ± 0.010 | −0.056 ± 0.005 |
-| RoundRobin_JSO+fm | −0.018 ± 0.011 | −0.025 ± 0.013 | −0.001 ± 0.002 | −0.001 ± 0.001 | −0.011 ± 0.005 |
-| RoundRobin_CMAES+fm | −0.005 ± 0.006 | −0.008 ± 0.007 | −0.001 ± 0.003 | −0.001 ± 0.003 | −0.004 ± 0.003 |
-| Blocks_warm_CMAES_JSO+fm | −0.004 ± 0.005 | −0.010 ± 0.010 | −0.001 ± 0.014 | −0.000 ± 0.004 | −0.004 ± 0.005 |
+| RoundRobin_TRQ+fm | −0.495 ± 0.023 | −0.181 ± 0.045 | −0.649 ± 0.008 | −0.152 ± 0.050 | −0.370 ± 0.017 |
+| RoundRobin_TRQ+aware | −0.487 ± 0.038 | −0.161 ± 0.061 | −0.618 ± 0.010 | −0.137 ± 0.039 | −0.351 ± 0.015 |
+| RoundRobin_TRQ+filter | −0.009 ± 0.015 | −0.037 ± 0.029 | 0 | −0.034 ± 0.032 | −0.020 ± 0.010 |
+| RoundRobin_Random+fm | −0.077 ± 0.025 | −0.089 ± 0.014 | −0.031 ± 0.014 | −0.030 ± 0.022 | −0.057 ± 0.008 |
+| RoundRobin_Random_NM+fm | −0.078 ± 0.024 | −0.082 ± 0.020 | −0.034 ± 0.033 | −0.029 ± 0.010 | −0.056 ± 0.005 |
+| RoundRobin_JSO+fm | −0.018 ± 0.011 | −0.026 ± 0.013 | −0.001 ± 0.002 | +0.001 ± 0.006 | −0.011 ± 0.006 |
+| RoundRobin_CMAES+fm | −0.006 ± 0.006 | −0.009 ± 0.005 | +0.000 ± 0.002 | −0.001 ± 0.003 | −0.004 ± 0.002 |
+| RoundRobin_CMAES+filter | −0.006 ± 0.006 | −0.006 ± 0.008 | +0.000 ± 0.003 | −0.000 | −0.003 ± 0.004 |
+| RoundRobin_CMAES+aware | +0.000 ± 0.006 | −0.005 ± 0.007 | −0.000 ± 0.003 | −0.000 ± 0.003 | −0.001 ± 0.003 |
+| Blocks_warm_CMAES_JSO+fm | −0.006 ± 0.003 | −0.011 ± 0.010 | −0.001 ± 0.012 | −0.000 ± 0.004 | −0.005 ± 0.005 |
 | RoundRobin_COBYQA+fm | 0 | 0 | 0 | 0 | 0 |
 
 **AOCC, Δ** (`aocc_time` Δ within 0.001 of the AOCC Δ in every cell):
 
 | arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
 |---|---|---|---|---|---|
-| RoundRobin_TRQ+fm | +0.050 ± 0.009 (5/5) | +0.012 ± 0.021 (4/5) | +0.077 ± 0.021 (5/5) | +0.010 ± 0.013 (4/5) | **+0.037 ± 0.006 (5/5)** |
+| RoundRobin_TRQ+fm | +0.050 ± 0.009 (5/5) | +0.013 ± 0.021 (4/5) | +0.077 ± 0.021 (5/5) | +0.009 ± 0.013 (4/5) | **+0.037 ± 0.006 (5/5)** |
 | RoundRobin_TRQ+aware | +0.050 ± 0.009 (5/5) | +0.003 ± 0.013 (4/5) | +0.057 ± 0.011 (5/5) | +0.003 ± 0.015 (3/5) | +0.028 ± 0.005 (5/5) |
-| RoundRobin_TRQ+filter | **−0.070 (0/5)** | +0.002 ± 0.003 | 0.000 | +0.000 ± 0.009 | −0.017 ± 0.002 (0/5) |
-| RoundRobin_Random_NM+fm | +0.009 ± 0.016 | +0.004 ± 0.010 | +0.000 ± 0.004 | +0.002 ± 0.002 (5/5) | +0.004 ± 0.006 (4/5) |
-| RoundRobin_Random+fm | +0.005 ± 0.008 | +0.000 ± 0.005 | −0.000 ± 0.004 | +0.001 ± 0.002 | +0.001 ± 0.002 |
-| RoundRobin_JSO+fm | +0.005 ± 0.009 | −0.001 ± 0.011 | +0.000 ± 0.001 | −0.002 ± 0.004 | +0.001 ± 0.004 |
-| RoundRobin_CMAES+fm | +0.003 ± 0.007 | −0.001 ± 0.008 | −0.001 ± 0.003 | −0.001 ± 0.002 | −0.000 ± 0.004 |
-| RoundRobin_CMAES+filter | +0.002 ± 0.004 (5/5) | +0.002 ± 0.006 | −0.000 ± 0.001 | +0.000 ± 0.000 | +0.001 ± 0.001 (4/5) |
-| RoundRobin_CMAES+aware | +0.002 ± 0.005 | −0.001 ± 0.007 | −0.001 ± 0.003 | −0.001 ± 0.002 | −0.000 ± 0.004 |
-| Blocks_warm_CMAES_JSO+fm | +0.000 ± 0.006 | +0.004 ± 0.008 | +0.000 ± 0.001 | −0.001 ± 0.002 | +0.001 ± 0.003 |
+| RoundRobin_TRQ+filter | −0.070 (0/5) | +0.002 ± 0.003 (3/5) | 0 | +0.000 ± 0.009 (3/5) | −0.017 ± 0.002 (0/5) |
+| RoundRobin_Random+fm | +0.005 ± 0.008 (3/5) | +0.000 ± 0.004 (2/5) | −0.000 ± 0.003 (2/5) | +0.000 ± 0.002 (2/5) | +0.001 ± 0.002 (3/5) |
+| RoundRobin_Random_NM+fm | +0.009 ± 0.016 (4/5) | +0.003 ± 0.007 (4/5) | +0.000 ± 0.004 (3/5) | +0.002 ± 0.002 (5/5) | +0.004 ± 0.005 (4/5) |
+| RoundRobin_JSO+fm | +0.005 ± 0.009 (4/5) | −0.003 ± 0.009 (2/5) | +0.000 ± 0.001 (3/5) | −0.002 ± 0.004 (2/5) | +0.000 ± 0.004 (3/5) |
+| RoundRobin_CMAES+fm | +0.003 ± 0.006 (4/5) | −0.003 ± 0.007 (2/5) | −0.001 ± 0.003 (2/5) | −0.001 ± 0.002 (2/5) | −0.000 ± 0.004 (2/5) |
+| RoundRobin_CMAES+filter | +0.003 ± 0.004 (5/5) | +0.001 ± 0.007 (3/5) | −0.002 ± 0.003 (0/5) | −0.000 (0/5) | +0.001 ± 0.001 (5/5) |
+| RoundRobin_CMAES+aware | +0.002 ± 0.005 (3/5) | −0.001 ± 0.007 (2/5) | −0.001 ± 0.003 (1/5) | −0.001 ± 0.002 (1/5) | −0.000 ± 0.004 (2/5) |
+| Blocks_warm_CMAES_JSO+fm | +0.002 ± 0.004 (4/5) | +0.003 ± 0.009 (4/5) | +0.000 ± 0.001 (4/5) | +0.000 ± 0.004 (3/5) | +0.002 ± 0.002 (5/5) |
 | RoundRobin_COBYQA+fm | 0 | 0 | 0 | 0 | 0 |
 
 Absolute AOCC (all cells): RoundRobin_TRQ 0.345 → +fm **0.382**; it was
@@ -6108,7 +6121,7 @@ Reading:
 
 Free preset (5 families × 3 instances), d 2/5, 100·d, q 1/4, seeds 42/7,
 every panobbgo arm (the seven above) with and without `+fm`: **840 of 840
-paired records identical** (AOCC, `aocc_time`, evaluations, precision,
+paired records identical** (re-checked on the review-fixed code: 840 / 840) (AOCC, `aocc_time`, evaluations, precision,
 failures).  With no failure the model is empty, the filter never fires and
 the `failure_aware` branches are never taken; the unit test
 `test_filter_is_bit_identical_without_failures` checks point-for-point

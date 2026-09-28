@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2024 Panobbgo Contributors
+# Copyright 2024-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ def test_pressure_vessel_design_alm():
 
     best = strategy.best
 
-    print(f"Pressure Vessel (ALM): Best f(x)={best.fx}, cv={best.cv}")
+    print(f"Pressure Vessel (ALM): Best f(x)={best.fx}, cv={best.cv}, seed={strategy.seed}")
     print(f"Design variables: {best.x}")
 
     # Check feasibility (relaxed slightly for stochastic nature)
@@ -68,7 +68,7 @@ def test_pressure_vessel_design_alm():
     # We use a loose upper bound because without local search (NelderMead) and with limited budget,
     # finding the exact optimum is difficult. We want to ensure it's in the ballpark.
     if best.cv < 1.0:
-        assert best.fx < 100000.0, f"Solution not optimal enough: fx={best.fx} (target ~6060)"
+        assert best.fx < 100000.0, f"Solution not optimal enough: fx={best.fx} (target ~6060), seed={strategy.seed}"
 
 
 def test_pressure_vessel_design_dynamic_penalty():

@@ -28,6 +28,13 @@ on:
         description: "Restrict the presets' dimensions, e.g. '2' (empty: all)"
         type: string
         default: ""
+      battery_seed:
+        description: >-
+          Battery seed of every preset's instances (empty: the default 20260910, the instances of every run so far);
+          another seed draws a fresh battery (new optima, rotations, failure regions) and tags the unit ids
+          <group>.<preset>-<seed>...
+        type: string
+        default: ""
       qs:
         description: "Virtual worker counts (only q <= bm runs, so 64 at 100*d only)"
         type: string
@@ -44,7 +51,8 @@ on:
       extra_units:
         description: >-
           Extra units (calibration runs; split and packed like the grid, in extra-NN shards of their own), ';'-joined ids
-          <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>], e.g.
+          <group>.<preset>[-<battery>].b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>] (their own battery; battery_seed
+          does not apply to them), e.g.
           'SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'
         type: string
         default: ""
@@ -80,18 +88,20 @@ jobs:
           PRESETS: ${{ inputs.presets }}
           BUDGETS: ${{ inputs.budgets }}
           DIMS: ${{ inputs.dims }}
+          BATTERY: ${{ inputs.battery_seed }}
           QS: ${{ inputs.qs }}
           GROUPS: ${{ inputs.groups }}
           EXTRA: ${{ inputs.extra_units }}
         run: |
           matrix=$(python3 scripts/measure.py plan --seeds "$SEEDS" --presets "$PRESETS" \
-            --budgets "$BUDGETS" --dims "$DIMS" --qs "$QS" --groups "$GROUPS" --extra-units "$EXTRA")
+            --budgets "$BUDGETS" --dims "$DIMS" --battery-seed "$BATTERY" --qs "$QS" --groups "$GROUPS" \
+            --extra-units "$EXTRA")
           sha=$(git rev-parse HEAD)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           {
             echo "### Measurement plan"
-            echo "commit \`$sha\`, seeds \`$SEEDS\`, presets \`$PRESETS\`, budgets \`$BUDGETS\`, dims \`${DIMS:-all}\`, qs \`$QS\`, groups \`$GROUPS\`"
+            echo "commit \`$sha\`, seeds \`$SEEDS\`, presets \`$PRESETS\`, budgets \`$BUDGETS\`, dims \`${DIMS:-all}\`, battery seed \`${BATTERY:-20260910 (default)}\`, qs \`$QS\`, groups \`$GROUPS\`"
             echo
             echo "| shard | units | est. min |"
             echo "|---|---|---|"

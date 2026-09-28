@@ -619,7 +619,11 @@ def test_run_and_aggregate_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setitem(ms.GROUPS, "core", ())
     real_instances = ms._instances
     monkeypatch.setattr(
-        ms, "_instances", lambda preset, dim, inst=-1, fam=-1: real_instances(preset, dim, inst, fam)[:1]
+        ms,
+        "_instances",
+        lambda preset, dim, inst=-1, fam=-1, battery=ms.DEFAULT_BATTERY_SEED: real_instances(
+            preset, dim, inst, fam, battery
+        )[:1],
     )
     out = tmp_path / "raw" / "core-01"
     unit = "core.free.b20.q4.d2.s42.i0"
@@ -1095,3 +1099,145 @@ def test_cost_sums_the_plan(capsys):
     # The full wide grid with the GP groups is refused by plan (more than 256 shards): cost says so.
     assert ms.main(["cost", "--presets", "wide"]) == 0
     assert "256" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# the battery seed (fresh instances: plan --battery-seed, measure.yml battery_seed)
+# ---------------------------------------------------------------------------
+
+#: The fresh battery of the failure confirmation run (TODO §2 (d)): unused by every earlier doc and run
+#: (the default 20260910, §69.4's wide battery 20260927, the sealed seed, DISCOVERY's seed 42).
+FRESH_BATTERY = 20260928
+
+
+def _fingerprint(problem, n_points: int = 64) -> tuple:
+    """What makes an instance: its seed, optimum, and f / failure mode at fixed points of its box."""
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    lo = np.asarray(problem.center) - np.asarray(problem.ranges) / 2
+    pts = lo + rng.random((n_points, problem.dim)) * np.asarray(problem.ranges)
+    fails = tuple(problem.failure_at(x) for x in pts)
+    values = tuple(float(problem.eval(x)) for x, f in zip(pts, fails) if f is None)
+    return (int(problem.seed), tuple(np.asarray(problem.x_opt).tolist()), float(problem.f_opt), fails, values)
+
+
+def test_battery_seed_constants_match_the_library():
+    from panobbgo.harness_families import DEFAULT_BATTERY_SEED
+    from panobbgo.sealed import SEALED_FAMILY_SEED
+
+    assert ms.DEFAULT_BATTERY_SEED == DEFAULT_BATTERY_SEED
+    assert ms.SEALED_FAMILY_SEED == SEALED_FAMILY_SEED
+
+
+def test_default_battery_is_bit_identical_to_the_fixed_battery():
+    """No battery seed = the instances of every run so far: ids, file names, battery name and problems."""
+    from panobbgo.harness_families import make_failure_battery, make_families_battery, make_wide_battery
+
+    u = ms.Unit("trq", "failure", 100, 1, 2, 4001)
+    assert u.battery == ms.DEFAULT_BATTERY_SEED and u.id == "trq.failure.b100.q1.d2.s4001"
+    assert ms.make_units([42], ["free"], [20], [2], [1], ["core"]) == ms.make_units(
+        [42], ["free"], [20], [2], [1], ["core"], ms.battery_seed("")
+    )
+    # The instance seeds of the default failure battery at d = 2, as every run so far drew them.
+    assert [int(p.seed) for _, p in ms._instances("failure", 2)] == [
+        4246189015, 4169616317, 3962231300, 62059296, 1444969612, 1024616450,
+        357403998, 855929218, 3149277538, 2794154595, 1459148296, 1739368156,
+    ]  # fmt: skip
+    for preset, make in (
+        ("free", make_families_battery),
+        ("failure", make_failure_battery),
+        ("wide", make_wide_battery),
+    ):
+        mine = ms._instances(preset, 2)
+        ref = list(make(dims=(2,), n_instances=ms.N_INSTANCES))  # the library's default, no seed argument
+        assert [n for n, _ in mine] == [n for n, _ in ref]
+        assert [_fingerprint(p, 16) for _, p in mine] == [_fingerprint(p, 16) for _, p in ref]
+
+
+def test_battery_seed_in_the_unit_id():
+    u = ms.Unit("trq", "failure", 100, 4, 5, 4001, inst=1, battery=FRESH_BATTERY)
+    assert u.id == f"trq.failure-{FRESH_BATTERY}.b100.q4.d5.s4001.i1"
+    assert ms.Unit.parse(u.id) == u and u.preset_token == f"failure-{FRESH_BATTERY}"
+    assert [x.battery for x in u.split_families()] == [FRESH_BATTERY] * 4
+    assert ms.Unit.parse("core.free-0.b20.q1.d2.s42").battery == 0
+    for bad in (
+        f"core.free-{ms.DEFAULT_BATTERY_SEED}.b20.q1.d2.s42",  # the default battery is the bare preset
+        "core.free-020260928.b20.q1.d2.s42",
+        "core.free-.b20.q1.d2.s42",
+        "core.free--5.b20.q1.d2.s42",
+        "core.free-x.b20.q1.d2.s42",
+        f"core.free-{ms.SEALED_FAMILY_SEED}.b20.q1.d2.s42",  # never a development battery
+        "core.nope-5.b20.q1.d2.s42",
+    ):
+        with pytest.raises(ValueError):
+            ms.Unit.parse(bad)
+    with pytest.raises(ValueError):
+        ms.battery_seed(str(ms.SEALED_FAMILY_SEED))
+    with pytest.raises(ValueError):
+        ms.battery_seed("-1")
+
+
+def test_plan_with_a_battery_seed_tags_every_unit():
+    ids = _plan_ids("--presets", "failure", "--budgets", "100", "--qs", "1", "--groups", "core,trq",
+                    "--battery-seed", str(FRESH_BATTERY))  # fmt: skip
+    assert ids and all(f".failure-{FRESH_BATTERY}." in u for u in ids)
+    default = _plan_ids("--presets", "failure", "--budgets", "100", "--qs", "1", "--groups", "core,trq")
+    # The same grid, only the preset part differs: every group sees the same seeds on the same battery.
+    assert sorted(u.replace(f"-{FRESH_BATTERY}", "") for u in ids) == sorted(default)
+
+
+@pytest.mark.parametrize("preset", ["free", "failure", "wide"])
+def test_a_fresh_battery_draws_new_instances(preset):
+    """Every instance of the fresh battery differs from the default one: optimum, values, failure regions."""
+    import numpy as np
+
+    for dim in ms.PRESET_DIMS[preset][:2]:
+        old = ms._instances(preset, dim)
+        new = ms._instances(preset, dim, battery=FRESH_BATTERY)
+        assert [n for n, _ in old] == [n for n, _ in new]  # the same families and indices
+        for (name, a), (_, b) in zip(old, new):
+            assert a.seed != b.seed, name
+            assert not np.allclose(a.x_opt, b.x_opt), name
+            fa, fb = _fingerprint(a), _fingerprint(b)
+            assert fa[4] != fb[4], name
+            if preset == "failure":
+                assert a.failure is not None and b.failure is not None
+                assert fa[3] != fb[3], f"{name}: the same failure region on the fixed points"
+
+
+def test_run_and_aggregate_on_a_fresh_battery(tmp_path, monkeypatch):
+    """A fresh-battery unit records its battery, names its file by it and gets a cell of its own."""
+    only = [s for s in make_ioh_strategies() if s.name == "RoundRobin_Random"]
+    monkeypatch.setattr(ms, "_strategies", lambda group: only)
+    old = ms.run_unit(ms.Unit.parse("core.failure.b20.q1.d2.s42.i0.f0"), jobs=1)
+    new = ms.run_unit(ms.Unit.parse(f"core.failure-{FRESH_BATTERY}.b20.q1.d2.s42.i0.f0"), jobs=1)
+    assert old["battery_seed"] == ms.DEFAULT_BATTERY_SEED and new["battery_seed"] == FRESH_BATTERY
+    assert old["result"]["battery_name"] == "measure-failure-b20"
+    assert new["result"]["battery_name"] == f"measure-failure-{FRESH_BATTERY}-b20"
+    (ro,), (rn,) = old["result"]["runs"], new["result"]["runs"]
+    # The same optimiser seed (CRN across batteries too), a different problem.
+    assert ro["seed"] == rn["seed"] and ro["problem_kind"] == rn["problem_kind"] and ro["f_opt"] != rn["f_opt"]
+    for p in (old, new):
+        p["shard"] = "core-01"
+        ms.write_atomic(tmp_path / f"{p['unit']}.json", json.dumps(p, default=float))
+    summary = ms.aggregate(tmp_path)
+    assert set(summary["cells"]) == {"failure/d2/b20/q1", f"failure-{FRESH_BATTERY}/d2/b20/q1"}
+    assert summary["cells"][f"failure-{FRESH_BATTERY}/d2/b20/q1"]["battery_seed"] == FRESH_BATTERY
+    assert summary["battery_seeds"] == {"failure": ms.DEFAULT_BATTERY_SEED, f"failure-{FRESH_BATTERY}": FRESH_BATTERY}
+    md = ms.summary_markdown(summary)
+    assert f"`failure-{FRESH_BATTERY}` {FRESH_BATTERY} (a fresh battery" in md and "(default)" in md
+    # A file whose recorded battery contradicts its id is refused.
+    new["battery_seed"] = ms.DEFAULT_BATTERY_SEED
+    with pytest.raises(ValueError, match="battery seed"):
+        ms.collect([new])
+
+
+def test_the_workflow_passes_the_battery_seed():
+    import yaml
+
+    workflow = yaml.safe_load((ms.REPO_ROOT / ".github" / "workflows" / "measure.yml").read_text())
+    inputs = workflow[True]["workflow_dispatch"]["inputs"]
+    assert inputs["battery_seed"]["default"] == "" == vars(ms.build_parser().parse_args(["plan"]))["battery_seed"]
+    [step] = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "plan"]
+    assert step["env"]["BATTERY"] == "${{ inputs.battery_seed }}" and '--battery-seed "$BATTERY"' in step["run"]

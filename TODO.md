@@ -157,14 +157,23 @@ extra).
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family; a local in-sample screen is §71, the q-sweep on runners
           with the `trq` group is still open).  **Prepared, not
-          dispatched** (#PR): §71's candidates `RoundRobin_TRQ_fa`
+          dispatched** (#393): §71's candidates `RoundRobin_TRQ_fa`
           (`failure_aware` + the `FailureModel` filter, §71.4's `+fm`,
           +0.037 in sample) and `RoundRobin_TRQ_aware` (`failure_aware`
           alone, `+aware`, +0.028) in the `trq` group, and the summary's
           *Variants − their base spec* table (every spec against the spec
           whose `seed_name` it shares: `_fa` / `_aware` / `_r05` −
-          `RoundRobin_TRQ`).  Fresh seeds **4001–4012** (unused: §67 took
-          1001–1012, §72.4 2001–2005, the §72 confirmation 3001–3012).
+          `RoundRobin_TRQ`).  Fresh optimiser seeds **4001–4012** (unused:
+          §67 took 1001–1012, §72.4 2001–2005, the §72 confirmation
+          3001–3012).  **The instances are not fresh:** `measure.py` builds
+          the failure battery at its fixed battery seed, the same 12
+          instances per d §71 was debugged on; the base seed moves only the
+          optimisers' streams.  This run confirms the effect over optimiser
+          seeds on those instances, not on unseen problems, and the preset
+          has no d = 10.  A fresh failure battery (a battery-seed option for
+          `measure.py` / `measure.yml`, as §69.4 did for the families) is
+          not built; if Harald wants criterion (1) on unseen instances, that
+          comes first.
           Grid: failure preset (d 2/5), 100·d, q 1/4/16/64 (q = 1 is where
           §71 measured TRQ's gain), all groups and `trq`:
           `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=failure -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
@@ -184,7 +193,9 @@ extra).
           The ex-ellipsoid view (here without `ellipsoid_fhs_crash`) is
           pre-declared as descriptive.
           *TRQ `failure_aware=True` as the arm's default* (its handling
-          only; judged on `RoundRobin_TRQ_aware`) if all of: (1) in the
+          only; judged on `RoundRobin_TRQ_aware`; the flip also changes the
+          opt-in `Blocks_warm_CMAES_JSO_TRQ` and `RoundRobin_TRQ_r05`, which
+          are read descriptively and not judged here) if all of: (1) in the
           two q = 1 cells (d 2, d 5; §71.4: +0.050, +0.057)
           `_aware − RoundRobin_TRQ` on AOCC (the variants table) has a
           CI95 above 0; (2) no failure cell has an `_aware − RoundRobin_TRQ`
@@ -199,7 +210,10 @@ extra).
           (the shipped specs through the harness, q 1/4).  Caveat:
           `RoundRobin_TRQ` is nearly seed-invariant at q = 1 (box-centre
           start), `_aware` is not where the start fails (a random
-          replacement), so the q = 1 CI is mostly the variant's seed spread.
+          replacement), so the q = 1 CI is mostly the variant's seed spread
+          on fixed, in-sample instances; §71.4's 5/5 there makes (1) likely
+          on these instances — it guards against a seed-list accident, not
+          against overfitting to the battery.
           *The filter* (`RoundRobin_TRQ_fa`) is read descriptively
           (`_fa − _aware` = the difference of their `vs_base` means on the
           same common runs); it stays opt-in whatever it shows (§71.6 (b)).
@@ -226,7 +240,11 @@ extra).
       100·d q = 1 cells of r05's §69.5 gains and the gate's d10/q1; no GP
       groups, `vs_headline` needs none), and optionally the gate's 20·d
       cells, `-f budgets=20 -f dims=10 -f qs=1,4` with all groups
-      (64 shards, ~52 h, SMAC and qLogEI most of it).
+      (64 shards, ~52 h, SMAC and qLogEI most of it).  (These counts are
+      for the code it was dispatched on, e86eee3, runs 36418128133 /
+      36418132989, without #393's `RoundRobin_TRQ_fa` / `_aware`; the same
+      commands on master after #393: 217 shards / ~219.1 h, trq 10 / 5.0 h,
+      q = 1 supplement 7 / 2.6 h.)
       **Decision rule (fixed by Harald 2026-09-28, before the dispatch; main run + the 100·d q = 1 supplement, no 20·d):**
       in the main grid the gate (`Blocks_warm_CMAES_JSO_dimbudget`) binds
       only at 100·d d10/q4 (§72.5).  It becomes the default if there its

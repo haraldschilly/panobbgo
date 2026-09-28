@@ -225,7 +225,8 @@ CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
 #: entry is the larger of the two presets.  The failure preset is the dearer one where it binds
 #: (d2/200/q1 3.5 s against 0.5 s free: the model's queries and the filter); d = 10 is free only.
 #: (2, 40, 1) is the first cell of the run, process start-up included (the failure preset's
-#: 0.11 s is the steady value); kept, it only rounds the estimate up.
+#: 0.11 s is the steady value); kept, it only rounds the estimate up.  The other five trq specs'
+#: tables are free-grid measurements only (the failure preset is not measured for them).
 FAILURE_CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
     (2, 40, 1): 1.15, (2, 40, 4): 0.11, (2, 40, 16): 0.10,
     (2, 200, 1): 3.47, (2, 200, 4): 0.62, (2, 200, 16): 1.25, (2, 200, 64): 1.34,
@@ -1133,7 +1134,9 @@ def base_specs(payloads: Iterable[Dict[str, Any]]) -> Dict[str, str]:
     spec a payload does not cover (a result file written before it was
     recorded), from the harness registries (the specs as they are now).  A
     spec whose identity is its own name has no base.  Two payloads that
-    disagree on a spec's identity are an error: its pairs would mix streams.
+    disagree on a spec's identity are an error: its pairs would mix streams;
+    so is a recorded identity that differs from the registry's when some
+    payload does not record it (its ``seed_name`` changed between runs).
     """
     seen: Dict[str, str] = {}
     unknown: Set[str] = set()
@@ -1146,10 +1149,15 @@ def base_specs(payloads: Iterable[Dict[str, Any]]) -> Dict[str, str]:
                 continue
             if seen.setdefault(name, str(ids[name])) != str(ids[name]):
                 raise ValueError(f"{name}: RNG identity {ids[name]!r} in {d['unit']}, {seen[name]!r} elsewhere")
-    if unknown - set(seen):
+    if unknown:
         registry = _registry_rng_identity()
-        for name in unknown - set(seen):
-            seen[name] = registry.get(name, name)
+        for name in unknown:
+            fallback = registry.get(name, name)
+            if seen.setdefault(name, fallback) != fallback:
+                raise ValueError(
+                    f"{name}: RNG identity {seen[name]!r} recorded, {fallback!r} in the registry for the files "
+                    "that do not record it"
+                )
     return {n: i for n, i in seen.items() if i != n}
 
 
@@ -1367,9 +1375,10 @@ def summarize(
             # Against the spec whose RNG streams it draws (its seed_name), when that spec ran here:
             # the paired delta then carries only the option (descriptive, outside Holm).
             base = bases.get(name)
-            has_base = base is not None and base != name and base in strats and not is_external(base)
-            r["base_spec"] = base if has_base else None
-            r["vs_base"] = vs_spec(strats[name], strats[base], common) if has_base else None
+            if base is None or base == name or base not in strats or is_external(base):
+                base = None
+            r["base_spec"] = base
+            r["vs_base"] = vs_spec(strats[name], strats[base], common) if base is not None else None
             r["vs"] = {e: {m: paired(strats[name], strats[e], m, common) for m in METRICS} for e in externals}
             r["vs_pool_best"] = {}
             for m in METRICS:
@@ -1708,8 +1717,8 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             f"`RoundRobin_TRQ`).  Variants of `{hs}` are in the table above.  *equal*: a variant is identical "
             "where its option does not act (a `failure_aware` arm on a run without failures) — on the same FP "
             "class, `(FP)` marks pairs across two.  **Descriptive**: unadjusted, not part of the Holm family.  "
-            "The `RoundRobin_TRQ` specs are nearly seed-invariant at q = 1 (box-centre start), so their q = 1 "
-            "CIs carry little.",
+            "`RoundRobin_TRQ` is nearly seed-invariant at q = 1 (box-centre start): there the CI is the variant's "
+            "own seed spread on fixed instances.",
             "",
             "| cell | spec | base | n (pairs) | metric | Δ metric [CI95] wins | Δ AOCC [CI95] wins | equal |",
             "|---|---|---|---|---|---|---|---|",

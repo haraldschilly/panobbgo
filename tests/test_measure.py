@@ -994,9 +994,14 @@ def test_variants_get_a_paired_delta_against_their_base_spec(tmp_path):
     fa1, fa4 = q1["RoundRobin_TRQ_fa"]["vs_base"], q4["RoundRobin_TRQ_fa"]["vs_base"]
     assert fa1["aocc"]["delta"] == pytest.approx(0.02) and fa1["aocc"]["wins"] == 3 and fa1["aocc"]["n_equal"] == 6
     assert fa4["aocc_time"]["delta"] == 0.0 and fa4["aocc_time"]["n_equal"] == 12
-    # The Holm family and the pool do not move.
-    before = ms.aggregate(tmp_path, planned)
-    assert summary["cells"]["free/d2/b20/q1"]["headline"] == before["cells"]["free/d2/b20/q1"]["headline"]
+    # The Holm family and the pool do not move: the same analysis without any base spec.
+    cells = ms.collect(ms.load_units(tmp_path)[0])
+    core = [s.name for s in make_ioh_strategies()]
+    without = ms.summarize(cells, planned, core, bases={})
+    for c, cell in summary["cells"].items():
+        assert cell["headline"] == without[c]["headline"] and cell["pool"] == without[c]["pool"]
+        assert cell["pool_best"] == without[c]["pool_best"]
+        assert all(r.get("vs_base") is None for r in without[c]["strategies"].values())
     md = ms.summary_markdown(summary)
     table = md.split("## Variants − their base spec (same RNG streams, descriptive)\n", 1)[1].split("\n## ", 1)[0]
     assert "**Descriptive**" in table and "not part of the Holm family" in table
@@ -1029,6 +1034,13 @@ def test_base_specs_reads_the_recorded_rng_identity_and_falls_back_to_the_regist
     clash = payload("trq.free.b20.q4.d2.s7", {"X_variant": "Y"}, ["X_variant"])
     with pytest.raises(ValueError, match="RNG identity"):
         ms.base_specs([recorded, clash])
+    # A recorded identity that differs from the registry's, with an older file of the same spec that records none.
+    moved = payload("trq.free.b20.q1.d2.s7", {"RoundRobin_TRQ_r05": "Elsewhere"}, ["RoundRobin_TRQ_r05"])
+    with pytest.raises(ValueError, match="registry"):
+        ms.base_specs([moved, old])
+    # Where they agree, the older file is fine.
+    agrees = payload("trq.free.b20.q1.d2.s7", {"RoundRobin_TRQ_r05": "RoundRobin_TRQ"}, ["RoundRobin_TRQ_r05"])
+    assert ms.base_specs([agrees, old]) == {"RoundRobin_TRQ_r05": "RoundRobin_TRQ"}
 
 
 def test_run_unit_records_each_specs_rng_identity(monkeypatch):

@@ -626,6 +626,26 @@ composite registry's CMA-ES entries, the screens and their variants):
     with an explicit `popsize` > 10 (`RoundRobin_CMAES` −0.0002…+0.0019 on
     the families, Blocks unchanged).
 
+Two block-scheduler defaults of DISCOVERY §72 (PR #390, pending Harald's
+decision on the gate) change the headline spec where they bind:
+
+*   **`regime_gate="dim-budget"`** in `Blocks_warm_CMAES_JSO`: at d ≥ 10
+    and ≤ 500·d on an unconstrained problem, whenever the evaluator count
+    is ≤ λ_default (10 at d = 10), the spec runs CMA-ES alone.  That
+    includes every cheap-track battery at d ≥ 10 (threaded, 2 workers), so
+    the §61 reference numbers for `Blocks_warm_CMAES_JSO` at d ≥ 10 no
+    longer reproduce.  On the expensive track it moves 100·d d10/q1 and
+    d10/q4, and 20·d d10/q1 and d10/q4.  Specs with an arm the regime
+    table does not name (`Blocks_warm_CMAES_JSO_TRQ`) are never gated.
+*   **`first_round_fill=True`** in `Blocks_warm_CMAES_JSO`,
+    `RegimeGate_oracle` and `Blocks_warm_CMAES_JSO_TRQ`: it changes
+    100·d d2/q64 and d5/q64, and 20·d d2/q16, for all three specs.  §67's
+    `RegimeGate_oracle` units and the §66/§71 TRQ numbers go stale in
+    those cells.  It never acts at q = 1 or without a request cap.
+
+Everywhere else these specs are bit-identical to before (§72.3,
+`tests/test_blocks_dim_budget_fill.py`).
+
 Baselines on constrained problems minimise `f + 100·cv` since #358, so
 their numbers before it on `--families-constrained` and on the
 constrained half of `--families-sealed` are not comparable.

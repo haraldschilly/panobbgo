@@ -271,3 +271,59 @@ def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
     assert d is not None and d["row"] == (None, "dim >= 10", "bpd <= 500", None)
     assert d["applied"] is False and "play no role" in d["reason"]
     assert d["disabled"] == []
+
+
+# -- review of #390: bit-identity at the real budgets, preload, the design's stream --
+
+
+@pytest.mark.parametrize("dim, q", [(10, 16), (10, 64), (5, 16)])
+def test_new_spec_is_bit_identical_to_the_old_where_neither_option_binds(dim, q):
+    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) the shipped config is the old one."""
+    runs = []
+    for overrides in ({}, {"regime_gate": None, "first_round_fill": False}):
+        s = _portfolio(dim=dim, max_eval=100 * dim, q=q, seed=5, **overrides)
+        s.start()
+        runs.append(s)
+    new, old = runs
+    assert new.regime_decision is not None and new.regime_decision["applied"] is False
+    assert new._initial_design_n == 0 and new._filled == {}
+    assert len(new.rec.seen) == len(old.rec.seen) == 100 * dim
+    assert [tuple(r.x) for r in new.rec.seen] == [tuple(r.x) for r in old.rec.seen]
+    assert [r.fx for r in new.rec.seen] == [r.fx for r in old.rec.seen]
+    assert [r.t_complete for r in new.rec.seen] == [r.t_complete for r in old.rec.seen]
+
+
+def test_a_preloaded_run_never_fills():
+    """Results before the first pass (a resume, ``preload_results``): the first round is over."""
+    from panobbgo.lib.families import Family
+    from panobbgo.selector_data import evaluate_probe, probe_design
+
+    problem = Family("ellipsoid", dim=2, seed=3)
+    probe = evaluate_probe(problem, probe_design(2, 10, 0))
+    s = _portfolio(dim=2, max_eval=200, q=64, problem=problem, first_round_fill=True)
+    s.preload_results(probe)
+    s.start()
+    assert s._initial_design_n == 0 and s._design_queue is None
+    assert all(r.who != StrategyBlockBandit.INITIAL_DESIGN_WHO for r in s.rec.seen)
+
+
+def test_the_design_draws_from_its_own_keyed_stream():
+    """The Latin hypercube leaves the strategy-level stream untouched and uses the keyed one."""
+    from panobbgo.core import keyed_rng, rng_stream_key
+
+    s = _portfolio(dim=2, max_eval=200, q=64, seed=9, first_round_fill=True)
+    before = s.rng.bit_generator.state
+    design = s._latin_hypercube(8)
+    assert s.rng.bit_generator.state == before
+    rng = keyed_rng(s.seed, rng_stream_key("first_round_fill", 0))
+    box = np.asarray(s.problem.box.box, dtype=float)
+    u = (np.argsort(rng.random((8, 2)), axis=0) + rng.random((8, 2))) / 8
+    expected = np.array([s.problem.project(box[:, 0] + ui * (box[:, 1] - box[:, 0])) for ui in u])
+    np.testing.assert_array_equal(np.array([p.x for p in design]), expected)
+    s._cleanup()
+
+
+def test_status_reports_the_fill():
+    s = _portfolio(dim=2, max_eval=200, q=64, first_round_fill=True)
+    s.start()
+    assert "design 38" in s._get_status_info()["first_round_fill"]

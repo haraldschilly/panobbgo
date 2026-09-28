@@ -195,10 +195,6 @@ PRESET_FAMILIES: Dict[str, int] = {"free": 5, "failure": 4, "wide": 15}
 #: (:attr:`Unit.preset_token`): ``failure-20260928``.
 DEFAULT_BATTERY_SEED = 20260910
 
-#: The sealed test set's battery seed (``panobbgo.sealed.SEALED_FAMILY_SEED``;
-#: pinned equal by a test): never a development battery, refused here.
-SEALED_FAMILY_SEED = 569725740
-
 
 def preset_token(preset: str, battery: int) -> str:
     """``preset`` on the default battery, else ``<preset>-<battery seed>`` (a unit id's and a cell's preset part)."""
@@ -217,11 +213,14 @@ def parse_preset_token(token: str) -> Tuple[str, int]:
 
 
 def check_battery_seed(battery: int) -> int:
-    """``battery`` if it is a usable development battery seed (a non-negative int, not the sealed one)."""
+    """``battery`` if it is a non-negative int.
+
+    The sealed test set's battery seed is refused by the library when a unit
+    runs (``lib.families.make_family_instances``); it is not spelled out
+    here, since the sealed ids appear in ``panobbgo/sealed.py`` only.
+    """
     if battery < 0:
         raise ValueError(f"battery seed {battery} is negative")
-    if battery == SEALED_FAMILY_SEED:
-        raise ValueError("the sealed family seed is not a development battery (panobbgo.sealed)")
     return battery
 
 

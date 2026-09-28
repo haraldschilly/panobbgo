@@ -57,6 +57,7 @@ def test_pressure_vessel_design_alm():
     strategy.start()
 
     best = strategy.best
+    assert best is not None
 
     print(f"Pressure Vessel (ALM): Best f(x)={best.fx}, cv={best.cv}, seed={strategy.seed}")
     print(f"Design variables: {best.x}")
@@ -92,6 +93,7 @@ def test_pressure_vessel_design_dynamic_penalty():
     strategy.start()
 
     best = strategy.best
+    assert best is not None
     print(f"Pressure Vessel (DynPenalty): Best f(x)={best.fx}, cv={best.cv}")
 
     # Relaxed checks

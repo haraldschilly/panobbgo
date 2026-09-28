@@ -330,6 +330,7 @@ def _payload(
     res = IOHHarnessResult("measure-free-b20", "families", -8.0, 2.0, runs, sync_eval=True, virtual={"workers": u.q})
     return {
         **asdict(u),
+        "battery_seed": u.battery,
         "unit": unit,
         "shard": shard,
         "host": {"cpu_model": cpu, "avx512f": False},
@@ -1136,9 +1137,7 @@ def test_default_battery_is_bit_identical_to_the_fixed_battery():
 
     u = ms.Unit("trq", "failure", 100, 1, 2, 4001)
     assert u.battery == ms.DEFAULT_BATTERY_SEED and u.id == "trq.failure.b100.q1.d2.s4001"
-    assert ms.make_units([42], ["free"], [20], [2], [1], ["core"]) == ms.make_units(
-        [42], ["free"], [20], [2], [1], ["core"], ms.battery_seed("")
-    )
+    assert ms.battery_seed("") == ms.battery_seed(" ") == ms.DEFAULT_BATTERY_SEED
     # The instance seeds of the default failure battery at d = 2, as every run so far drew them.
     assert [int(p.seed) for _, p in ms._instances("failure", 2)] == [
         4246189015, 4169616317, 3962231300, 62059296, 1444969612, 1024616450,
@@ -1176,6 +1175,13 @@ def test_battery_seed_in_the_unit_id():
         ms.battery_seed(str(ms.SEALED_FAMILY_SEED))
     with pytest.raises(ValueError):
         ms.battery_seed("-1")
+    with pytest.raises(ValueError, match="--battery-seed: not an integer"):
+        ms.battery_seed("abc")
+    # An extra unit on another battery is not covered by the same grid on the default battery.
+    grid = ms.make_units([42], ["free"], [20], [2], [1], ["core"])
+    extra = ms.Unit.parse(f"core.free-{FRESH_BATTERY}.b20.q1.d2.s42.i0")
+    assert ms.uncovered([extra], grid) == [extra]
+    assert ms.uncovered([ms.Unit.parse("core.free.b20.q1.d2.s42.i0")], grid) == []
 
 
 def test_plan_with_a_battery_seed_tags_every_unit():
@@ -1226,11 +1232,33 @@ def test_run_and_aggregate_on_a_fresh_battery(tmp_path, monkeypatch):
     assert summary["cells"][f"failure-{FRESH_BATTERY}/d2/b20/q1"]["battery_seed"] == FRESH_BATTERY
     assert summary["battery_seeds"] == {"failure": ms.DEFAULT_BATTERY_SEED, f"failure-{FRESH_BATTERY}": FRESH_BATTERY}
     md = ms.summary_markdown(summary)
-    assert f"`failure-{FRESH_BATTERY}` {FRESH_BATTERY} (a fresh battery" in md and "(default)" in md
+    assert f"`failure-{FRESH_BATTERY}` {FRESH_BATTERY} (not the default battery)" in md and "(default)" in md
     # A file whose recorded battery contradicts its id is refused.
     new["battery_seed"] = ms.DEFAULT_BATTERY_SEED
     with pytest.raises(ValueError, match="battery seed"):
         ms.collect([new])
+
+
+def test_pools_and_plans_stay_apart_across_batteries(tmp_path):
+    """Two batteries in one aggregate: a pool per battery, seeds counted against each battery's plan."""
+    planned, payloads = [], []
+    for token in ("free", f"free-{FRESH_BATTERY}"):
+        for j, seed in enumerate((42, 7)):
+            ngopt: List[Optional[float]] = [0.4 + 0.01 * j] * 4
+            if token != "free" and seed == 7:
+                ngopt[0] = None  # a crash on the fresh battery only
+            unit = f"core.{token}.b20.q1.d2.s{seed}"
+            planned.append(unit)
+            scores = {"Blocks_warm_CMAES_JSO": [0.5] * 4, "Baseline_NGOpt": ngopt, "Baseline_pycma_IPOP": [0.3] * 4}
+            payloads.append(_payload(unit, "core-01", scores))
+    _write(tmp_path, payloads)
+    summary = ms.aggregate(tmp_path, planned)
+    assert summary["missing_units"] == []
+    old, new = summary["cells"]["free/d2/b20/q1"], summary["cells"][f"free-{FRESH_BATTERY}/d2/b20/q1"]
+    assert old["pool"] == ["Baseline_NGOpt", "Baseline_pycma_IPOP"] and new["pool"] == ["Baseline_pycma_IPOP"]
+    assert "Baseline_NGOpt" in new["pool_excluded"] and not old["pool_excluded"]
+    for c in (old, new):
+        assert c["planned_seeds"] == 2 and c["n_common_seeds"] == 2 and c["planned_runs"] == 8
 
 
 def test_the_workflow_passes_the_battery_seed():

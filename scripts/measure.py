@@ -80,8 +80,8 @@ a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
 calls), so q = 64 runs at 100·d only.  Seeds: the first N of the decision
-roster.  Battery: :data:`DEFAULT_BATTERY_SEED` unless ``--battery-seed``.  Every run is seeded and deterministic on one host, with no
-wall-clock limit (the GP baselines are exempt from it anyway).
+roster.  Battery: :data:`DEFAULT_BATTERY_SEED` unless ``--battery-seed``.
+Every run is seeded and deterministic on one host, with no wall-clock limit (the GP baselines are exempt from it anyway).
 """
 
 from __future__ import annotations
@@ -711,7 +711,13 @@ def _grid(args: argparse.Namespace) -> Tuple[List[Unit], List[Unit]]:
 def battery_seed(text: Optional[str]) -> int:
     """The ``--battery-seed`` argument: empty for :data:`DEFAULT_BATTERY_SEED`, else a non-negative int."""
     text = (text or "").strip()
-    return check_battery_seed(int(text)) if text else DEFAULT_BATTERY_SEED
+    if not text:
+        return DEFAULT_BATTERY_SEED
+    try:
+        value = int(text)
+    except ValueError:
+        raise ValueError(f"--battery-seed: not an integer: {text!r}") from None
+    return check_battery_seed(value)
 
 
 def plan_cost(entries: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1356,7 +1362,7 @@ def summarize(
         c: {n: _status(obs, expected[c].get(n, set()), instances[c]) for n, obs in s.items()} for c, s in cells.items()
     }
 
-    # The fixed pool per (preset, dim, bm): the externals that ran in EVERY q
+    # The fixed pool per (preset token, dim, bm): the externals that ran in EVERY q
     # cell of it without a crashed run, so best-of does not change with q
     # because the pool changed.  A missing unit (a cut shard) does not
     # exclude: the comparisons run on the common runs instead (below).  Only
@@ -1509,10 +1515,11 @@ def summarize(
 def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     """The summary of every unit result under ``src`` (``planned_units``: the plan's unit ids).
 
-    Per cell (preset, dim, bm, q):
+    Per cell (preset token, dim, bm, q; the token is ``<preset>[-<battery>]``,
+    :func:`preset_token`):
 
-    * the **pool**: the externals that ran in every q cell of the (preset,
-      dim, bm) with no crashed or timed-out run — fixed across q, so a delta
+    * the **pool**: the externals that ran in every q cell of the (preset
+      token, dim, bm) with no crashed or timed-out run — fixed across q, so a delta
       does not move with q because the pool changed.  Others (SMAC at q = 1,
       a baseline left out of some cells, one with errors) are reference rows;
     * the **common runs**: the (seed, family, instance) keys present for the
@@ -1641,13 +1648,12 @@ def _battery_line(summary: Dict[str, Any]) -> str:
     """The header line naming each preset's battery seed (a summary without the field: the default battery)."""
     seeds = summary.get("battery_seeds") or {}
     parts = [
-        f"`{t}` {seed}" + (" (default)" if seed == DEFAULT_BATTERY_SEED else " (a fresh battery: new instances)")
+        f"`{t}` {seed}" + (" (default)" if seed == DEFAULT_BATTERY_SEED else " (not the default battery)")
         for t, seed in seeds.items()
     ]
     return (
-        "Battery seed (the problem instances; the base seeds move only the optimisers): "
-        + ("; ".join(parts) if parts else f"{DEFAULT_BATTERY_SEED} (default)")
-        + "."
+        "Battery seed (the problem instances; the base seeds move only the optimisers' and the durations' "
+        "streams): " + ("; ".join(parts) if parts else f"{DEFAULT_BATTERY_SEED} (default)") + "."
     )
 
 
@@ -1937,7 +1943,7 @@ def _grid_args(p: argparse.ArgumentParser) -> None:
         "--battery-seed",
         default="",
         help=f"The battery seed of every preset's instances (default, empty: {DEFAULT_BATTERY_SEED}, the "
-        "instances of every run so far); another seed draws a fresh battery and tags the unit ids "
+        "fixed development battery of record); another seed draws another battery and tags the unit ids "
         "(<preset>-<seed>).",
     )
     p.add_argument("--qs", default="1,4,16,64", help="Virtual worker counts; q <= bm only.")

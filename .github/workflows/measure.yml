@@ -30,7 +30,7 @@ on:
         default: ""
       battery_seed:
         description: >-
-          Battery seed of every preset's instances (empty: the default 20260910, the instances of every run so far);
+          Battery seed of every preset's instances (empty: the default 20260910, the fixed development battery of record);
           another seed draws a fresh battery (new optima, rotations, failure regions) and tags the unit ids
           <group>.<preset>-<seed>...
         type: string

@@ -346,7 +346,8 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
 
 *   **The battery seed** (`-f battery_seed`, `measure.py plan
     --battery-seed`; empty = `harness_families.DEFAULT_BATTERY_SEED`,
-    20260910, the instances of every run before 2026-09-28).  The base
+    20260910, the fixed development battery of record: every `measure.py`
+    run before this option, and the family presets' default elsewhere).  The base
     seeds (`-f seeds`) move only the optimisers' and the durations' streams;
     the problems — every optimum, rotation, failure region, constraint —
     come from the battery seed.  So a run on the default battery measures
@@ -360,7 +361,9 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     do not depend on it, so the pairing across groups (CRN, `seed_name`)
     holds on any battery; `aggregate` keeps cells of different batteries
     apart (cell `failure-20260928/d2/b100/q1`) and the summary header names
-    each preset's battery seed.  Seeds used so far: 20260910 (default),
+    each preset's battery seed.  The Holm family is every headline cell of
+    one aggregate, so aggregate a run whose Holm family is pre-declared on
+    its own battery by itself.  Seeds used so far: 20260910 (default),
     20260927 (§69.4's fresh wide battery, local), 20260928 (the failure
     confirmation, TODO §2 (d)); the sealed seed is refused.  Pick an unused
     one for the next blind test.

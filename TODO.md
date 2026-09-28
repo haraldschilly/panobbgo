@@ -187,9 +187,11 @@ extra).
           fresh battery (the identity holds on any battery; this keeps the
           whole run on unseen instances), no GP group needed:
           `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=free -f battery_seed=20260928 -f budgets=100 -f qs=1,4,16,64 -f groups=trq`
-          (13 shards, ~6.5 h).  Aggregate the two runs' artifacts
-          together (or apart); their cells are `failure-20260928/…` and
-          `free-20260928/…`.
+          (13 shards, ~6.5 h).  Aggregate the main run on its own (the
+          Holm family is every headline cell of one aggregate: the 8
+          failure cells); the supplement (trq only: no pool, no headline)
+          may be aggregated with it or apart.  Their cells are
+          `failure-20260928/…` and `free-20260928/…`.
           **Decision rule (signed off by Harald 2026-09-28 as written,
           before the dispatch):**
           *Holm family:* the 8 failure cells (d 2/5 × q 1/4/16/64, 100·d),
@@ -217,9 +219,14 @@ extra).
           `RoundRobin_TRQ` is nearly seed-invariant at q = 1 (box-centre
           start), `_aware` is not where the start fails (a random
           replacement), so the q = 1 CI is mostly the variant's seed spread
-          on the 3 fixed instances per family and d — now unseen ones
-          (the fresh battery), so (1) also guards against overfitting to
-          §71's battery, within those instances.
+          on fixed, in-sample instances; §71.4's 5/5 there makes (1) likely
+          on these instances — it guards against a seed-list accident, not
+          against overfitting to the battery.
+          (Note added with the battery seed, after the sign-off; the rule
+          above is unchanged: on the fresh battery the instances are no
+          longer §71's, so the caveat's "in-sample" no longer applies and
+          (1) also tests the effect on unseen instances — still only 3 per
+          family and d.)
           *The filter* (`RoundRobin_TRQ_fa`) is read descriptively
           (`_fa − _aware` = the difference of their `vs_base` means on the
           same common runs); it stays opt-in whatever it shows (§71.6 (b)).

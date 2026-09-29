@@ -5,9 +5,10 @@
 ``regime_gate="dim-budget"`` applies only the dimension / budget rows of
 ``REGIME_TABLE_V1``, and only while the workers do not exceed the kept arms'
 serial generation size.  ``first_round_fill`` fills the workers the arms
-leave idle before the first result.  The fill is on in the headline spec
-``Blocks_warm_CMAES_JSO``; the gate is opt-in, as
-``Blocks_warm_CMAES_JSO_dimbudget`` (§72.8).
+leave idle before the first result.  Both are on in the headline spec
+``Blocks_warm_CMAES_JSO``: the fill since §72, the gate since §73 (opt-in
+as ``Blocks_warm_CMAES_JSO_dimbudget`` from §72.8 until the fresh-seed
+confirmation).
 """
 
 from __future__ import annotations
@@ -244,24 +245,19 @@ def test_first_round_fill_respects_the_budget():
 def test_headline_spec_defaults():
     from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
 
-    from panobbgo.harness_ioh import BLOCKS_VARIANT_NAMES, make_blocks_variant_strategies
-
     specs = {sp.name: sp for sp in make_ioh_strategies() + make_trust_region_strategies()}
     blocks = specs["Blocks_warm_CMAES_JSO"].config_overrides
-    # first-round fill on by default, the dim/budget gate opt-in (Harald, 2026-09-28)
-    assert "regime_gate" not in blocks and blocks["first_round_fill"] is True
-    (gated,) = make_blocks_variant_strategies()
-    assert BLOCKS_VARIANT_NAMES == (gated.name,) == ("Blocks_warm_CMAES_JSO_dimbudget",)
-    assert gated.config_overrides == {**blocks, "regime_gate": "dim-budget"}
-    assert gated.seed_name == "Blocks_warm_CMAES_JSO" and gated.heuristics == specs["Blocks_warm_CMAES_JSO"].heuristics
-    assert make_blocks_variant_strategies(["nope"]) == []
-    assert not set(BLOCKS_VARIANT_NAMES) & set(specs)
-    rg = specs["RegimeGate_oracle"].config_overrides
-    assert rg["regime_gate"] == "oracle" and rg["first_round_fill"] is True
+    # first-round fill (§72) and the dim/budget gate (§73: the pre-declared rule passed) on by default
+    assert blocks["regime_gate"] == "dim-budget" and blocks["first_round_fill"] is True
+    # the opt-in variant is gone: it would be the headline spec under another name
+    assert "Blocks_warm_CMAES_JSO_dimbudget" not in specs
+    # RegimeGate_oracle: the portfolio's config but the gate
+    assert specs["RegimeGate_oracle"].config_overrides == {**blocks, "regime_gate": "oracle"}
+    # the TRQ portfolio copies the config, gate included; the gate never applies there (test below)
     assert specs["Blocks_warm_CMAES_JSO_TRQ"].config_overrides == blocks
 
 
-def test_ioh_cli_adds_the_gated_variant_only_when_named():
+def test_ioh_cli_no_longer_knows_the_gated_variant(capsys):
     import argparse
     import importlib.util
     from pathlib import Path
@@ -272,13 +268,22 @@ def test_ioh_cli_adds_the_gated_variant_only_when_named():
     cli = importlib.util.module_from_spec(mspec)
     mspec.loader.exec_module(cli)
     base = dict(legacy=False, standard=True, full=False, baselines=False)
-    names = [s.name for s in cli._resolve_strategies(argparse.Namespace(strategies=None, **base))]
-    assert "Blocks_warm_CMAES_JSO_dimbudget" not in names
     wanted = ["Blocks_warm_CMAES_JSO", "Blocks_warm_CMAES_JSO_dimbudget"]
     picked = cli._resolve_strategies(argparse.Namespace(strategies=wanted, **base))
-    assert [s.name for s in picked] == wanted
-    assert picked[1].rng_identity == picked[0].rng_identity == "Blocks_warm_CMAES_JSO"
-    assert picked[1].config_overrides["regime_gate"] == "dim-budget"
+    assert [s.name for s in picked] == ["Blocks_warm_CMAES_JSO"]
+    assert picked[0].config_overrides["regime_gate"] == "dim-budget"
+    assert "Blocks_warm_CMAES_JSO_dimbudget" in capsys.readouterr().err  # reported as unknown
+
+
+def test_the_shipped_headline_spec_gates_at_d10_q4():
+    """No override: the shipped config runs CMA-ES alone where §72's row binds."""
+    s = _portfolio(dim=10, max_eval=40, q=4)
+    s._max_eval = lambda: 1000  # 100·d, the cell the §73 rule judged
+    s.start()
+    d = s.regime_decision
+    assert d is not None and d["gate"] == "dim-budget" and d["applied"] is True
+    assert d["enabled"] == ["CMAES"] and d["disabled"] == ["JSO"]
+    assert {r.who.split(":")[0] for r in s.rec.seen} == {"CMAES"}
 
 
 def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
@@ -304,22 +309,64 @@ def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
     assert d["disabled"] == []
 
 
+def _trq_portfolio(*, dim: int, max_eval: int, q: int, seed: int, **overrides: Any) -> Any:
+    """``Blocks_warm_CMAES_JSO_TRQ`` as shipped, with ``overrides`` on its config."""
+    from panobbgo.harness_ioh import make_trust_region_strategies
+    from panobbgo.virtual_clock import VirtualSpec
+
+    spec = make_trust_region_strategies(["Blocks_warm_CMAES_JSO_TRQ"])[0]
+    config = {**spec.config_overrides, **overrides}
+    s = spec.strategy_class(Rosenbrock(dim=dim), parse_args=False, testing_mode=True, seed=seed, **config)
+    s.config.max_eval = max_eval
+    s.config.stop_on_convergence = False
+    VirtualSpec(workers=q, duration="lognormal").apply(s)
+    for h, hk in spec.heuristics:
+        s.add(h, **hk)
+    for a, ak in spec.analyzers:
+        s.add_analyzer(a(s, **ak))
+    rec = _Recorder(s)
+    s.add_analyzer(rec)
+    s.rec = rec
+    return s
+
+
+@pytest.mark.parametrize("q", [1, 4])
+def test_trq_portfolio_is_unchanged_by_the_gate_default(q):
+    """§73: ``Blocks_warm_CMAES_JSO_TRQ`` inherits ``regime_gate="dim-budget"`` from the portfolio, but at
+    d10/100·d, where the gate binds for the headline spec, it keeps every arm and runs the ungated config's
+    trajectory point for point."""
+    runs = []
+    for overrides in ({}, {"regime_gate": None}):
+        s = _trq_portfolio(dim=10, max_eval=1000, q=q, seed=4, **overrides)
+        s.start()
+        runs.append(s)
+    shipped, ungated = runs
+    assert shipped.regime_gate == "dim-budget" and ungated.regime_decision is None
+    d = shipped.regime_decision
+    assert d is not None and d["applied"] is False and d["disabled"] == [] and "play no role" in d["reason"]
+    assert len(shipped.rec.seen) == len(ungated.rec.seen) == 1000
+    assert [tuple(r.x) for r in shipped.rec.seen] == [tuple(r.x) for r in ungated.rec.seen]
+    assert [r.fx for r in shipped.rec.seen] == [r.fx for r in ungated.rec.seen]
+    assert [r.who for r in shipped.rec.seen] == [r.who for r in ungated.rec.seen]
+    assert [r.t_complete for r in shipped.rec.seen] == [r.t_complete for r in ungated.rec.seen]
+
+
 # -- review of #390: bit-identity at the real budgets, preload, the design's stream --
 
 
 @pytest.mark.parametrize("dim, q", [(10, 16), (10, 64), (5, 16)])
-def test_shipped_and_gated_specs_are_bit_identical_to_the_old_where_neither_option_binds(dim, q):
-    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) the shipped config and the
-    opt-in gated one both reproduce the old config."""
+def test_shipped_and_ungated_specs_are_bit_identical_to_the_old_where_neither_option_binds(dim, q):
+    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) the shipped config (gated
+    since §73) and the §72 one (fill, no gate) both reproduce the config before §72."""
     runs = []
-    for overrides in ({}, {"regime_gate": "dim-budget"}, {"regime_gate": None, "first_round_fill": False}):
+    for overrides in ({}, {"regime_gate": None}, {"regime_gate": None, "first_round_fill": False}):
         s = _portfolio(dim=dim, max_eval=100 * dim, q=q, seed=5, **overrides)
         s.start()
         runs.append(s)
-    shipped, gated, old = runs
-    assert shipped.regime_decision is None
-    assert gated.regime_decision is not None and gated.regime_decision["applied"] is False
-    for new in (shipped, gated):
+    shipped, ungated, old = runs
+    assert shipped.regime_decision is not None and shipped.regime_decision["applied"] is False
+    assert ungated.regime_decision is None
+    for new in (shipped, ungated):
         assert new._initial_design_n == 0 and new._filled == {}
         assert len(new.rec.seen) == len(old.rec.seen) == 100 * dim
         assert [tuple(r.x) for r in new.rec.seen] == [tuple(r.x) for r in old.rec.seen]

@@ -7,10 +7,12 @@ References: cheap track, the 2026-09-27 re-baseline with the active-CMA
 default (§61, release `rebaseline-2026-09-27`,
 `planning/results/2026-09-27/SUMMARY.json`); §64 changes only CMA-ES runs
 with λ > 10 there (≤ 0.002 on the families, other suites unmeasured).
-Expensive track (`measure.yml`): §67 for the core specs at 100·d,
-q 4/16/64 (run 36315576900, 12 fresh seeds, confirmatory); §65 for the
-core specs at q = 1 and 20·d (run 36313485264); §62 for the GP baselines
-elsewhere (run 36274781342).
+Expensive track (`measure.yml`): §73 for the core specs and the `trq`
+candidates at 100·d, q 1/4/16/64 (runs 36418128133 / 36418132989, seeds
+3001–3012, release `measure-2026-09-29-confirm-3001`; its headline units
+are the spec before the gate default); §67 for q 4/16/64 on seeds
+1001–1012 (run 36315576900); §65 for the core specs at 20·d (run
+36313485264); §62 for the GP baselines elsewhere (run 36274781342).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -88,17 +90,28 @@ extra).
       third arm (`Blocks_warm_CMAES_JSO_TRQ`) costs −0.013…−0.019 against
       Blocks.  The free preset's one exact-quadratic family in five can
       dominate its means: report the ex-ellipsoid view next to the mean.
-      Next: a fresh-seed runner run
-      (new base seeds) of the trust-region specs at q 1/4/16/64 with an ex-ellipsoid
-      view, MA-BBOB at 20·d / 100·d, and the f-scale quadratic R² plus the
-      TR ratio-test rate as logged features (roadmap A's probe).  The specs
-      are wired into `scripts/measure.py` as the opt-in group `trq` (not in
-      `groups=all`; its cost row is a laptop estimate, recalibrate from the
-      first run), and the summary has the ex-ellipsoid table and a
-      paired table against the headline spec.  The group also runs
-      `RoundRobin_TRQ_r05` (§69.5's start radius 0.5, a fresh-seed
-      candidate); the §72 confirmation run below covers q 4/16/64 at
-      100·d, its q = 1 supplement the cells of r05's §69.5 gains.
+      **Fresh seeds, free preset: §73** (seeds 3001–3012, 100·d, q
+      1/4/16/64, descriptive — not pre-declared for a decision).  With all
+      families `RoundRobin_TRQ`, `_r05` and `Blocks_warm_CMAES_JSO_TRQ`
+      lead the headline spec 11–12/12 in every cell but d10/q64 and the
+      pool's best in all but one (r05 − pool best +0.029 … +0.301).
+      Without the ellipsoid they still lead at d ≤ 5 in most cells, but
+      at d = 10 all three trail the headline spec in all four q cells
+      (−0.025 … −0.005; the d = 10 lead is the ellipsoid, where everything
+      else scores 0).  r05 − `RoundRobin_TRQ`: ahead in 8 of 12 cells,
+      never behind.
+      **Proposal for Harald (not added, not dispatched):** a pre-declared
+      confirmation of a TRQ-including headline candidate (e.g.
+      `Blocks_warm_CMAES_JSO_TRQ`, or r05 as the third arm) against
+      `Blocks_warm_CMAES_JSO` and the pool on the **`wide` preset** (15
+      families, §68), fresh optimiser seeds and a fresh battery seed,
+      d 2/5/10 (d = 10 is where the free preset's lead is only the
+      ellipsoid), a Holm family and a decision rule fixed before the
+      dispatch; which candidate, the grid and the rule are Harald's call.
+      Also open: MA-BBOB at 20·d / 100·d, and the f-scale quadratic R²
+      plus the TR ratio-test rate as logged features (roadmap A's probe).
+      The `trq` group's cost row is still the laptop estimate;
+      recalibrate from §73's runner runs (`s/run` in their summaries).
 - [ ] **Wide family preset (§68).**  `measure.py --presets wide` (opt-in,
       15 families, every x_opt away from the box centre) is in; only a
       local smoke of core + trq at d 2/5, 100·d, q 1/4 exists.  Next: a
@@ -154,7 +167,9 @@ extra).
           cap — inferred, not measured) and whether to close Blocks
           d2/100·d/q16 without tuning (§67: gap to qLogEI −0.011, 3/12,
           n.s., mostly ellipsoid; ex-ellipsoid −0.004 is post-hoc and
-          descriptive; the §63.4 block-sizing ideas stay untried);
+          descriptive; **§73 on seeds 3001–3012: a Holm loss, −0.014
+          [−0.020, −0.008] 1/12, ellipsoid −0.042, ex-ellipsoid −0.007
+          (descriptive)**; the §63.4 block-sizing ideas stay untried);
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family; a local in-sample screen is §71, the q-sweep on runners
           with the `trq` group is still open).  **Prepared, not
@@ -191,7 +206,12 @@ extra).
           Holm family is every headline cell of one aggregate: the 8
           failure cells); the supplement (trq only: no pool, no headline)
           may be aggregated with it or apart.  Their cells are
-          `failure-20260928/…` and `free-20260928/…`.
+          `failure-20260928/…` and `free-20260928/…`.  (Dispatched
+          2026-09-28 at c43c199 as runs 36535041375 / 36535045456, before
+          §73: their `trq` shards still run `Blocks_warm_CMAES_JSO_dimbudget`
+          (`measure.RETIRED_SPECS` keeps it in the group), and their
+          headline units are the ungated spec — identical to the gated one
+          at d ≤ 5, so the failure cells are unaffected.)
           **Decision rule (signed off by Harald 2026-09-28 as written,
           before the dispatch):**
           *Holm family:* the 8 failure cells (d 2/5 × q 1/4/16/64, 100·d),
@@ -231,49 +251,17 @@ extra).
           (`_fa − _aware` = the difference of their `vs_base` means on the
           same common runs); it stays opt-in whatever it shows (§71.6 (b)).
           The TRQ rule's CIs are unadjusted and outside the Holm family.
-      §67's two Holm losses are addressed in §72: d2/q64 by
-      `first_round_fill` (default), d10/q4 by `regime_gate="dim-budget"`
-      (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), opt-in as
-      `Blocks_warm_CMAES_JSO_dimbudget` (Harald, 2026-09-28, §72.8); on the
-      §67 seeds (not blind) both together: Holm 4/2/3 → 5/0/4.
-      Next: confirm on runners with a fresh seed list and the GP groups,
-      the gated variant against the portfolio; then decide the gate's
-      default.  Prepared (`measure.py`: the `trq` group now carries the
-      opt-in candidates `RoundRobin_TRQ_r05` and
-      `Blocks_warm_CMAES_JSO_dimbudget`, and the summary has a paired
-      table of every secondary spec against the headline spec).  Fresh
-      seeds **3001–3012** (unused: §67 took 1001–1012, §72.4 2001–2005);
-      the §67 grid (100·d, q 4/16/64, d 2/5/10), its 9 cells the
-      pre-declared Holm family again:
-      `gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
-      (`plan`: 214 shards, ~217 estimated runner-hours, 200 of them
-      qLogEI; the estimate ran 1.56× high on §67's similar 207 shards /
-      137.8 h; trq 7 shards, 3.4 h).  Supplements on the same seeds:
-      `-f budgets=100 -f qs=1 -f groups=core,trq` (6 shards, ~2.2 h; the
-      100·d q = 1 cells of r05's §69.5 gains and the gate's d10/q1; no GP
-      groups, `vs_headline` needs none), and optionally the gate's 20·d
-      cells, `-f budgets=20 -f dims=10 -f qs=1,4` with all groups
-      (64 shards, ~52 h, SMAC and qLogEI most of it).  (These counts are
-      for the code it was dispatched on, e86eee3, runs 36418128133 /
-      36418132989, without #393's `RoundRobin_TRQ_fa` / `_aware`; the same
-      commands on master after #393: 217 shards / ~219.1 h, trq 10 / 5.0 h,
-      q = 1 supplement 7 / 2.6 h.)
-      **Decision rule (fixed by Harald 2026-09-28, before the dispatch; main run + the 100·d q = 1 supplement, no 20·d):**
-      in the main grid the gate (`Blocks_warm_CMAES_JSO_dimbudget`) binds
-      only at 100·d d10/q4 (§72.5).  It becomes the default if there its
-      paired Δ against `Blocks_warm_CMAES_JSO` on `aocc_time` (the
-      `vs_headline` table) has a CI95 above 0 and its Δ against the pool's
-      best has a CI95 not entirely below 0, and it is identical in every
-      other cell (*equal* + ties at 0 = n; a cell marked `(FP)` may instead
-      show Δ ≈ 0), and no CI95 is entirely below 0 in the supplements'
-      binding cells (100·d d10/q1; 20·d d10 q1/q4 if run).  The 9-cell Holm
-      family stays the headline spec vs the pool's best.
-      `RoundRobin_TRQ_r05` and the other trq specs are read descriptively
-      (against the headline spec in the summary; r05 − `RoundRobin_TRQ`
-      from the unit files, same `seed_name` — or re-aggregate the run
-      locally with a `measure.py` that has the *Variants − their base
-      spec* table, which pairs them); no default rides
-      on them.
+      §67's two Holm losses (§72): d2/q64 fixed by `first_round_fill`
+      (parity on fresh seeds, §73.2); d10/q4 by `regime_gate="dim-budget"`,
+      **the headline default since §73** (the pre-declared rule passed on
+      seeds 3001–3012: +0.011 [+0.006, +0.016] 11/12 against the ungated
+      spec, identical elsewhere; `Blocks_warm_CMAES_JSO_dimbudget` is gone).
+      §73's Holm family (ungated spec): 4 wins, 1 loss (d2/q16 vs qLogEI,
+      −0.014, p_holm 0.002), 4 unresolved (with the gate d10/q4 reads
+      +0.004, p_holm 0.100, post hoc).  Open from it: the d2/q16 loss (b)
+      and the q = 1 loss to Py-BOBYQA at d2 (−0.203, descriptive), both
+      mostly where a quadratic model acts; the gate's 20·d d10 cells (not
+      run).
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at
@@ -385,11 +373,12 @@ Cheap-track items, in GOAL §2c order:
 - [ ] **Defaults** `regime_gate="oracle:clean"` and `block_evals="auto"` for
       `Blocks_warm_CMAES_JSO` (§45.1, §46.4): only after the suite is
       broadened and the question re-run there (decision of 2026-09-13).
-      §72 (decided 2026-09-28): `first_round_fill=True` is the default;
-      `regime_gate="dim-budget"` (no oracle; one row: unconstrained
-      d ≥ 10, ≤ 500·d, q ≤ λ_default → CMA-ES alone) stays opt-in
-      (`Blocks_warm_CMAES_JSO_dimbudget`) until a fresh-seed runner
-      confirmation; not measured with it: the cheap track at d ≥ 10.
+      §72/§73: `first_round_fill=True` and `regime_gate="dim-budget"` (no
+      oracle; one row: unconstrained d ≥ 10, ≤ 500·d, q ≤ λ_default →
+      CMA-ES alone) are the defaults, the gate since its fresh-seed
+      confirmation (§73).  Not measured with it: the cheap track at
+      d ≥ 10 (§61's headline numbers there no longer reproduce; the next
+      re-baseline records them).
 - [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`,
       extended by roadmap §3.3): d 10/20, more instances, full BBOB instead of
       MA-BBOB mixtures, constrained/noisy as own axes; tiered (small screen,

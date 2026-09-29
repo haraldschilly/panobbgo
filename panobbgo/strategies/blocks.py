@@ -221,9 +221,11 @@ On :data:`REGIME_TABLE_V1` that is the ``dim >= 10, bpd <= 500`` row
 (CMA-ES alone) for unconstrained problems at q <= λ_default; with more
 workers the worker floor (``CMAES(popsize_min_workers)``, §63) runs a
 larger-λ CMA-ES the row never measured, and the portfolio is level with
-or ahead of it there (§67.5, §72).  Opt-in: the harness spec
-``Blocks_warm_CMAES_JSO_dimbudget`` uses it, the headline spec
-``Blocks_warm_CMAES_JSO`` does not (§72.8).
+or ahead of it there (§67.5, §72).  The class default stays
+``regime_gate=None``; the harness's headline spec ``Blocks_warm_CMAES_JSO``
+runs with ``"dim-budget"`` since DISCOVERY §73 (opt-in as
+``Blocks_warm_CMAES_JSO_dimbudget`` from §72.8 until the fresh-seed
+confirmation passed Harald's pre-declared rule).
 
 First-round fill
 ----------------

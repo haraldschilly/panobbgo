@@ -6152,7 +6152,8 @@ track (12 fresh seeds, 100·d): d10/q4 against TuRBO1 (−0.008, 1/12) and
 d2/q64 against qLogEI (−0.015, 0/12).  This section finds the cause of
 each, fixes both, and checks the fixes on the §67 seeds and on five
 more.  The headline spec ships only the d2/q64 fix; the d10/q4 gate is
-opt-in until confirmed (§72.8).
+opt-in until confirmed (§72.8).  (Confirmed on fresh seeds and made the
+default in §73.)
 
 **Setup.**  The `measure.py` core path, run locally (4 processes, niced):
 free preset, 100·d, virtual clock with the async policy, log-normal
@@ -6518,3 +6519,235 @@ seeds above.
   d2/q16); the cheap track at d ≥ 10 and the §61 reference numbers are
   unchanged.  §67's d10/q4 Holm loss stays open for the headline spec
   until the gate is confirmed.
+* **Superseded by §73 (2026-09-29):** the fresh-seed confirmation passed
+  the pre-declared rule; `regime_gate="dim-budget"` is the default and
+  `Blocks_warm_CMAES_JSO_dimbudget` is gone from the registries.
+
+## 73. Fresh-seed confirmation of §72 (seeds 3001–3012): the dim/budget gate passes the pre-declared rule and becomes the headline default; Holm 4 wins / 1 loss (d2/q16) / 4 unresolved; the trust-region candidates lead every cell with the ellipsoid and trail the headline spec at d = 10 without it (2026-09-29)
+
+**Runs.**  Two `measure.yml` runs, both dispatched at **e86eee3** on the
+fresh optimiser seeds **3001–3012** (unused: §67 took 1001–1012, §72.4
+2001–2005), the free preset on its default battery (seed 20260910, the
+same 15 instances as §62–§72: fresh seeds, not fresh instances), 100·d:
+
+* **main**, run 36418128133: d 2/5/10 × q 4/16/64, groups core, qLogEI,
+  TuRBO1, SMAC and `trq`; 540 units in 214 shards, none missing, none
+  failed;
+* **q = 1 supplement**, run 36418132989: d 2/5/10 × q 1, groups core and
+  `trq`; 72 units in 6 shards, none missing, none failed.
+
+The optional 20·d d10 supplement was not run.  Every shard of both runs
+has `fp_env_id` 80ee2a0090c4.  The `trq` group at e86eee3 ran
+`RoundRobin_TRQ`, `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`,
+`RoundRobin_TRQ_r05` and `Blocks_warm_CMAES_JSO_dimbudget` (#393's
+`_fa` / `_aware` came later).  Since e86eee3, master changed
+`harness_ioh.py` only by adding those two specs, and `measure.py` in
+aggregation, reporting and the opt-in battery seed (default
+bit-identical); nothing on the measured specs' code path, by reading the
+diff.  Raw data: pre-release `measure-2026-09-29-confirm-3001` (unit
+files of both runs, summaries, plans); in git:
+`planning/results/2026-09-29-measure-confirm-3001/` (`README.md` with
+the provenance and the rule, both `summary*.md`, `tables.md`,
+`trq_table.py`).  Deltas as in §67: paired over seeds on each cell's
+common runs (per-seed instance means), t-CI95, wins/12.
+
+### 73.1 The gate rule → default
+
+The rule (TODO.md, fixed by Harald on 2026-09-28 before the dispatch):
+the gate (`Blocks_warm_CMAES_JSO_dimbudget`, the headline spec's config
+plus `regime_gate="dim-budget"`, on its RNG streams) binds only at 100·d
+d10/q4 in the main grid; it becomes the default if (1) there its Δ
+against `Blocks_warm_CMAES_JSO` on `aocc_time` has a CI95 above 0, (2)
+its Δ against the pool's best has a CI95 not entirely below 0, (3) it is
+identical in every other cell (*equal* + ties at 0 = n), and (4) no CI95
+is entirely below 0 in the supplements' binding cells.
+
+| # | measured | pass |
+|---|---|---|
+| 1 | d10/q4 gate − headline: **+0.011 [+0.006, +0.016] 11/12** (AOCC +0.011 [+0.006, +0.017]) | yes |
+| 2 | d10/q4 gate − pool best (TuRBO1): **+0.004 [+0.001, +0.008] 10/12** | yes |
+| 3 | the other 8 main cells: equal + ties at 0 = 180/180 in each, one FP environment, no `(FP)` pair | yes |
+| 4 | d10/q1 gate − headline: **+0.001 [−0.004, +0.007] 6/12** | yes |
+
+The supplement's non-binding cells are identical too (d2/q1 180/180;
+d5/q1 160 + 20 ties at 0).  Against the pool at d10/q1 the gate is
++0.005 [+0.002, +0.008] 11/12 (Optuna_CmaEs).  At d10/q4 the gated
+spec equals `RegimeGate_oracle` run for run, as §72 found (the oracle
+picks the same row on a noiseless battery).  Earlier evidence: gate −
+old spec +0.004 [−0.001, +0.009] 4/5 on seeds 2001–2005 (§72.4), gate −
+pool +0.006 on the non-blind §67 seeds (§72.3); here gate − old spec is
++0.011 on 12 fresh seeds, gate − pool +0.004.
+
+**All four conditions pass: `regime_gate="dim-budget"` is now the
+default of `Blocks_warm_CMAES_JSO`** (`harness_ioh.py`).  The opt-in
+variant `Blocks_warm_CMAES_JSO_dimbudget` would be the headline spec
+under a second name and is removed from the registries and the `trq`
+group; its old unit files (these two runs, which predate the per-unit
+`rng_identity`) keep their group and base spec through
+`measure.RETIRED_SPECS`, and re-aggregating run 36418128133 with the
+new code gives the same `summary.json` as master's `measure.py`.
+`RegimeGate_oracle` is the portfolio's config but the gate ("oracle"),
+unchanged.  `Blocks_warm_CMAES_JSO_TRQ` copies the portfolio's config,
+gate included, but the gate never applies to a spec with an arm the
+regime table does not name: a test pins its d10/100·d runs at q 1 and 4
+point for point to the ungated config's.  Comparability
+(`doc/dev/benchmarking.md`): the headline spec changes wherever the row
+binds — expensive track d ≥ 10, ≤ 500·d, q ≤ λ_default; on the cheap
+track every unconstrained d = 10 run of the family suites — so **the
+§61 reference numbers of `Blocks_warm_CMAES_JSO` at d ≥ 10 no longer
+reproduce**, and every earlier headline unit in those cells (§62–§72) is
+the ungated spec.
+
+### 73.2 The Holm family
+
+Pre-declared: the 9 headline cells, `Blocks_warm_CMAES_JSO` **as
+dispatched (ungated, with §72's first-round fill)** − the pool's best on
+`aocc_time`, Holm at 0.05.  **4 wins, 1 loss, 4 unresolved** (§67 on
+seeds 1001–1012, before the fill: 4 / 2 / 3).
+
+| cell | pool best | Δ [CI95] wins | p_holm | §67 (seeds 1001–1012) |
+|---|---|---|---|---|
+| d2/q4 | qLogEI | +0.018 [+0.006, +0.030] 10/12 | 0.039 **win** | +0.021, 8/12, 0.183 |
+| d2/q16 | qLogEI | −0.014 [−0.020, −0.008] 1/12 | 0.002 **loss** | −0.011, 3/12, 0.183 |
+| d2/q64 | qLogEI | +0.001 [−0.005, +0.008] 6/12 | 0.845 | −0.015, 0/12, 0.001 loss |
+| d5/q4 | TuRBO1 | +0.007 [+0.000, +0.013] 7/12 | 0.116 | +0.011, 11/12, 0.001 win |
+| d5/q16 | qLogEI | +0.026 [+0.023, +0.029] 12/12 | 0.000 **win** | +0.030, 12/12 win |
+| d5/q64 | qLogEI | +0.001 [−0.002, +0.004] 9/12 | 0.845 | +0.001, 8/12, 0.347 |
+| d10/q4 | TuRBO1 | −0.007 [−0.013, −0.001] 2/12 | 0.080 | −0.008, 1/12, 0.007 loss |
+| d10/q16 | TuRBO1 | +0.009 [+0.005, +0.013] 11/12 | 0.004 **win** | +0.014, 12/12 win |
+| d10/q64 | TuRBO1 | +0.018 [+0.017, +0.019] 12/12 | 0.000 **win** | +0.017, 12/12 win |
+
+* **d2/q64: the first-round fill holds out of sample.**  §67's loss
+  (−0.015, 0/12) is parity here (+0.001, 6/12), as §72.1 predicted.
+* **d2/q16 is now a Holm loss** (−0.014, 1/12): the gap to qLogEI that
+  §63.4/§67 saw (−0.016 in sample, −0.011 n.s. on 1001–1012) is
+  significant on these seeds.  It is mostly ellipsoid (per family:
+  −0.042 [−0.058, −0.026] 0/12); without the ellipsoid it is −0.007
+  [−0.014, −0.000] 3/12 (descriptive).  Neither the fill nor the gate
+  acts there (q = 16 > λ_default; the arms' first generations fill 16
+  workers).
+* **d10/q4, the cell the gate is for:** the ungated spec loses −0.007,
+  p_holm 0.080 (unresolved by Holm, 2/12).  With the gate (post hoc: the
+  new default's numbers read off the same runs, the other 8 cells being
+  identical) it is +0.004 [+0.001, +0.008] 10/12, p 0.025, p_holm 0.100
+  over the same 9 cells: still unresolved, no longer behind.
+* d5/q4 (+0.007, p_holm 0.116) is weaker than §67's Holm win (+0.011).
+
+### 73.3 The q = 1 cells (supplement; descriptive, not in the family)
+
+The supplement has no GP groups, so its pool is the cheap externals and
+Py-BOBYQA; its three cells were not pre-declared as a Holm family.
+
+| cell | pool best | headline Δ [CI95] wins | gated |
+|---|---|---|---|
+| d2/q1 | PyBOBYQA (sequential) 0.430 | **−0.203 [−0.231, −0.175] 0/12** | the same |
+| d5/q1 | PyBOBYQA (sequential) 0.140 | −0.015 [−0.032, +0.002] 3/12 | the same |
+| d10/q1 | Optuna_CmaEs 0.082 | +0.004 [−0.002, +0.010] 8/12 | +0.005 [+0.002, +0.008] 11/12 |
+
+At d2/q1 the headline spec loses to the local model-based reference by
+a fifth of the AOCC scale.  Per family: ellipsoid −0.643, rosenbrock
+−0.280, ackley −0.132, sharp_ridge −0.015 n.s., rastrigin +0.055 n.s.;
+without the ellipsoid it is still −0.093 [−0.125, −0.061] 1/12.  At
+d5/q1 the ex-ellipsoid view reverses the sign (+0.010 n.s.).  A
+population portfolio at 200 evaluations in d = 2 is outrun by a
+quadratic model; that is what the TRQ arm addresses (§73.4).
+
+### 73.4 The trust-region candidates (descriptive)
+
+`tables.md` has every cell; paired against the headline spec as
+dispatched (ungated; with the gate it is +0.011 higher at d10/q4 and
++0.001 at d10/q1, identical elsewhere).
+
+**With all families**, the three TRQ specs lead the headline spec
+11–12/12 in every cell but d10/q64, and the pool's best in every cell
+but one (`Blocks_warm_CMAES_JSO_TRQ` at d2/q1: +0.001, 5/12).  Ranges
+over the 12 cells:
+
+* `RoundRobin_TRQ_r05` − pool best: +0.029 (d10/q64) … +0.301 (d2/q4),
+  CI above 0 in all 12;
+* `Blocks_warm_CMAES_JSO_TRQ` − headline: +0.049 … +0.204 in 11 cells,
+  +0.007 [−0.003, +0.018] 5/12 at d10/q64;
+* `RoundRobin_TRQ` − headline: +0.053 … +0.318 in 11 cells, −0.008
+  [−0.016, +0.001] 3/12 at d10/q64.
+
+`RoundRobin_COBYQA` is not in this group of leaders: on `aocc_time` it
+trails the headline at q ≥ 16 in every d and is level at d10/q4, while
+on AOCC it leads in every cell (it proposes one point at a time, so the
+batch cells' time axis penalises it).
+
+**Without the ellipsoid family** (36 of 180 runs; pool best re-selected):
+
+| | d ≤ 5 (6 main + 2 q = 1 cells) | d = 10 (4 cells) |
+|---|---|---|
+| r05 − headline | +0.007 … +0.268; CI above 0 in 7 of 8 (d5/q16 +0.007 n.s.) | **−0.025 … −0.007, 0/12 … 3/12, CI below 0 in all 4** |
+| r05 − pool best | +0.023 … +0.175, CI above 0 in all 8 | −0.029 (q4), −0.014 (q16), −0.002 n.s. (q1), +0.005 (q64) |
+| Blocks_TRQ − headline | +0.003 … +0.067; CI above 0 in 5 of 8 | **−0.015 … −0.005, CI below 0 in all 4** |
+| Blocks_TRQ − pool best | −0.026 n.s. (d2/q1) … +0.061; CI above 0 in 6 of 8 | −0.024 (q4), +0.003 n.s. (q16), +0.018 (q64), −0.008 (q1) |
+
+So the claim "every TRQ candidate beats both references in every cell,
+and without the ellipsoid too" holds with the ellipsoid and at d ≤ 5,
+**not at d = 10 without the ellipsoid**.  At d = 10 the headline spec
+and the pool's best score 0 on the ellipsoid (every run), the TRQ
+specs 0.04–0.85; that one family carries their d = 10 lead.  Ex
+ellipsoid, the TRQ specs lose mostly on ackley (d10/q4: r05 0.153,
+`Blocks_warm_CMAES_JSO_TRQ` 0.146, headline 0.226, TuRBO1 0.263; the
+gated headline 0.264).
+
+**r05 − the other TRQ specs** (paired from the unit files; r05 and
+`RoundRobin_TRQ` share RNG streams, so that delta carries only the
+start radius):
+
+* r05 − `RoundRobin_TRQ`: ahead in 8 of 12 cells (CI above 0), level at
+  d5/q4, d10/q4, d10/q16, d10/q64 (+0.001 … +0.018, n.s.); never behind.
+  Ex-ellipsoid: ahead in 10, level at d5/q4, −0.000 at d10/q1 (below 0
+  on every seed, by less than 0.0005).
+* r05 − `Blocks_warm_CMAES_JSO_TRQ`: ahead at d ≤ 5 (+0.024 … +0.171;
+  d5/q4 +0.024 [+0.000, +0.047]), behind at d10/q4 (−0.041
+  [−0.076, −0.007] 2/12) and d10/q1 (−0.037 [−0.049, −0.026] 1/12),
+  level at d10/q16 and q64.  Ex-ellipsoid: ahead at d ≤ 5 in 6 of 8
+  (level at d5/q4, d5/q16); at d = 10 behind at q16 (−0.017) and q64
+  (−0.012), level at q4, ahead at q1 (+0.006 [+0.001, +0.012] 9/12).  The standalone arm leads at low d; the portfolio with the
+  arm holds up better at d = 10.
+
+### 73.5 Caveats
+
+* **Nothing in §73.4 was pre-declared for a decision.**  The TRQ specs
+  ran as secondary specs so that the gate's run could also show them;
+  §73.4 selects its framing from the same data.  Unadjusted, outside the
+  Holm family; no default rides on it.
+* **The ellipsoid inflates every TRQ number.**  It is the free preset's
+  one exactly quadratic family (§66), a model-based arm solves it and
+  nothing else in the pool does at d = 10.  It is one family in five,
+  so a family-level gain g moves the cell mean by g/5: the TRQ specs'
+  d = 10 ellipsoid scores (0.04–0.85 against 0) are worth +0.01 … +0.17
+  of their cell means.  The ex-ellipsoid view is
+  the fairer reading, and it reverses the d = 10 picture.
+* **5 families, 15 fixed instances.**  The free preset is small and
+  these are the instances §62–§72 were developed on; the seeds are
+  fresh, the instances are not.  `wide` (15 families, no box-centre
+  optimum, §68) is where a claim about model-based arms has to be
+  made, and `RoundRobin_TRQ` has known wide-preset failure modes
+  (§69).
+* **The gate's Holm reading is post hoc.**  The family was pre-declared
+  on the ungated spec; the gated d10/q4 number (p_holm 0.100) is the
+  new default read off the same runs, not a new test.
+* **q = 1 is one pool.**  The supplement had no GP groups; TuRBO1 and
+  SMAC at q = 1 on these seeds are not measured.
+
+### 73.6 Not measured / next
+
+* **Proposal for Harald, nothing added or dispatched:** a pre-declared
+  confirmation of a TRQ-including headline candidate — e.g.
+  `Blocks_warm_CMAES_JSO_TRQ` (with the dim/budget gate it inherits,
+  which does not act on it) against `Blocks_warm_CMAES_JSO` and the pool
+  — on the **`wide` preset** (15 families), with fresh optimiser seeds
+  and a fresh battery seed, a Holm family fixed in advance, the
+  ex-ellipsoid (here: ex exactly-quadratic) view pre-declared as
+  descriptive, and **d = 10** in the grid (§73.4: the free preset's
+  d = 10 lead is the ellipsoid).  Which candidate (the portfolio with
+  the arm, or r05 as a third arm) and the grid are Harald's call.
+* The d2/q16 Holm loss to qLogEI (mostly ellipsoid) and the d2/q1 loss
+  to Py-BOBYQA: both are where a model-based arm would act.
+* The 20·d d10 cells with the gate; the cheap track at d ≥ 10 with the
+  new default (§61's numbers there no longer reproduce; the next
+  re-baseline records them).

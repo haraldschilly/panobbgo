@@ -32,9 +32,10 @@ keyed on the dimension and the budget, and only while the parallel
 workers do not exceed the kept arms' serial generation size (λ_default for
 CMA-ES).  On the current table that is: unconstrained, ``d ≥ 10``,
 ``≤ 500·dim``, at most λ_default workers → CMA-ES alone; everything else is
-left ungated.  It is opt-in, as the harness spec
-``Blocks_warm_CMAES_JSO_dimbudget`` (``planning/DISCOVERY_2026-09-09.md``
-§72.8); the headline spec ``Blocks_warm_CMAES_JSO`` runs without it.  ``"table-v1"``, the in-run
+left ungated.  The benchmark harness's headline spec
+``Blocks_warm_CMAES_JSO`` runs with it since ``planning/DISCOVERY_2026-09-09.md``
+§73 (a fresh-seed confirmation of §72); ``StrategyBlockBandit`` itself
+still defaults to ``regime_gate=None``.  ``"table-v1"``, the in-run
 noise probe of ``planning/DESIGN_regime_gating_2026-09-11.md`` §1, raises
 ``NotImplementedError`` until the oracle has cleared its battery.
 

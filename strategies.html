@@ -221,9 +221,10 @@ keyed on the dimension and the budget, and only while the parallel
 workers do not exceed the kept arms’ serial generation size (λ_default for
 CMA-ES).  On the current table that is: unconstrained, <code class="docutils literal notranslate"><span class="pre">d</span> <span class="pre">≥</span> <span class="pre">10</span></code>,
 <code class="docutils literal notranslate"><span class="pre">≤</span> <span class="pre">500·dim</span></code>, at most λ_default workers → CMA-ES alone; everything else is
-left ungated.  It is opt-in, as the harness spec
-<code class="docutils literal notranslate"><span class="pre">Blocks_warm_CMAES_JSO_dimbudget</span></code> (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code>
-§72.8); the headline spec <code class="docutils literal notranslate"><span class="pre">Blocks_warm_CMAES_JSO</span></code> runs without it.  <code class="docutils literal notranslate"><span class="pre">&quot;table-v1&quot;</span></code>, the in-run
+left ungated.  The benchmark harness’s headline spec
+<code class="docutils literal notranslate"><span class="pre">Blocks_warm_CMAES_JSO</span></code> runs with it since <code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code>
+§73 (a fresh-seed confirmation of §72); <code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code> itself
+still defaults to <code class="docutils literal notranslate"><span class="pre">regime_gate=None</span></code>.  <code class="docutils literal notranslate"><span class="pre">&quot;table-v1&quot;</span></code>, the in-run
 noise probe of <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_regime_gating_2026-09-11.md</span></code> §1, raises
 <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code> until the oracle has cleared its battery.</p>
 <p><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit(first_round_fill=True)</span></code> fills, before the first

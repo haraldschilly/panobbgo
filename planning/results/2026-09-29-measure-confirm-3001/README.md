@@ -94,5 +94,5 @@ every cell but `Blocks_warm_CMAES_JSO_TRQ` at d2/q1 (+0.001, 5/12).  Without
 the ellipsoid family they still lead at d ≤ 5 in most cells, but **at d = 10
 all three trail the headline spec in all four q cells** (e.g. d10/q4 r05
 −0.021 [−0.026, −0.015] 0/12): at d = 10 the headline spec and the pool's
-best score 0 on the ellipsoid, the TRQ specs 0.04–0.85, and that one family
+best score ≈ 0 on the ellipsoid, the TRQ specs 0.04–0.85, and that one family
 carries their lead (ackley is most of the ex-ellipsoid gap).

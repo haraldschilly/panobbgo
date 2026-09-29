@@ -854,7 +854,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 # since DISCOVERY §73: the rule Harald fixed before the
                 # fresh-seed confirmation (seeds 3001-3012, runs 36418128133 /
                 # 36418132989) passed — d10/100·d/q4 +0.011 [+0.006, +0.016]
-                # 11/12 against the ungated spec, identical in every other cell.
+                # 11/12 against the ungated spec, identical in every other main-grid cell.
                 "regime_gate": "dim-budget",
                 # DISCOVERY §72: before the first result, workers the arms
                 # cannot fill take the other arm's queue, then a Latin

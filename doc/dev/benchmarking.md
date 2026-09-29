@@ -711,7 +711,10 @@ where they bind (the gate since §73):
     on the **cheap track** every unconstrained d ≥ 10 run at ≤ 500·d (a
     few synchronous evaluators, fewer than λ_default: of the re-baseline
     suites, `families-free` and `families-shapes` at d = 10; the IOH
-    suites run d 2/5), so **the §61 reference numbers of
+    suites run d 2/5; also the sealed families at d ≥ 10, the d = 10
+    noisy battery — the gate reads the table as noiseless, untested
+    under noise —, `benchmarks/failure_screen.py`'s Blocks arms and the
+    selector menu's Blocks arm when run at d ≥ 10), so **the §61 reference numbers of
     `Blocks_warm_CMAES_JSO` at d ≥ 10 no longer reproduce** (its d ≤ 5
     numbers and every other spec's do).  Every `Blocks_warm_CMAES_JSO`
     unit of the expensive track before §73 (§62, §65, §67, §72's runs) is
@@ -719,7 +722,10 @@ where they bind (the gate since §73):
     otherwise the same config) and `Blocks_warm_CMAES_JSO_TRQ` do not
     change: the TRQ spec inherits the setting, but the gate is never
     applied to a spec with an arm the regime table does not name, and its
-    runs are those of the ungated config (tested).
+    runs are those of the ungated config (tested).  Unit files record no
+    config, so an aggregate that mixes `Blocks_warm_CMAES_JSO` units
+    from before and after §73 mixes the two specs in those cells: only
+    the commit tells them apart.
 
 Everywhere else these specs are bit-identical to before (§72.3,
 `tests/test_blocks_dim_budget_fill.py`).

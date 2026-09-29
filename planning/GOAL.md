@@ -210,7 +210,7 @@ characterised; what is left is choosing the arm per problem.  In order
    (2026-09-29): the narrower non-oracle `regime_gate="dim-budget"` is
    the spec's default too, after a fresh-seed confirmation passed the
    rule Harald fixed before it (d10/100·d/q4 +0.011, 11/12, identical
-   elsewhere); the oracle gate still waits for the broader suite.
+   in every other main-grid cell); the oracle gate still waits for the broader suite.
 6. **Standing rules.**  No further bandit tuning without a new
    mechanism (§31); the composite registry's three CMA-ES specs stay a
    frozen contract pending Harald.

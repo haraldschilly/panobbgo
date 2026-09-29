@@ -386,9 +386,7 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     `RoundRobin_TRQ_fa` and `RoundRobin_TRQ_aware`, §71's failure-region
     candidates on the same streams: `failure_aware=True` with the
     `FailureModel` filter, §71.4's winning `+fm`, and `failure_aware=True`
-    alone, its `+aware`) and the `Blocks_warm_CMAES_JSO` variants
-    (`make_blocks_variant_strategies`: `Blocks_warm_CMAES_JSO_dimbudget`,
-    §72's dim/budget gate on the headline spec's RNG streams) on exactly the core
+    alone, its `+aware`) on exactly the core
     cells and seeds, with the same instances and CRN durations (the duration
     stream is per cell, not per process), in `trq-NN` shards packed like
     core's.  `all` stays the measurement of record so the default grid, its
@@ -488,7 +486,7 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         jobs: a key is (seed, family, instance), the instances and CRN
         durations depend on the cell and seed only, the RNG streams on the
         `seed_name`.  Unadjusted and outside the Holm family.  This table
-        judges the §72 gate against the headline spec.
+        judged the §72 gate against the headline spec (DISCOVERY §73).
     *   **Variants against their base spec** (descriptive): every panobbgo
         spec that draws another spec's RNG streams (its `seed_name`) is
         paired with that spec, in the same format (`summary.json`:
@@ -497,11 +495,13 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         `RoundRobin_TRQ_aware` − `RoundRobin_TRQ`, so the delta carries only
         the option, and *equal* = n where the option does not act (a
         `failure_aware` arm on the free preset, §71.5).  The headline spec's
-        variants (`Blocks_warm_CMAES_JSO_dimbudget`, `_TRQ`,
-        `RegimeGate_oracle`) have it too but stay in the table above, which
-        is the same comparison.  The base comes from the `rng_identity` map
-        each unit file records (`measure.py run`); a file written before it
-        was recorded falls back to the registries' current `seed_name`.
+        variants (`_TRQ`, `RegimeGate_oracle`) have it too but stay in the
+        table above, which is the same comparison.  The base comes from the
+        `rng_identity` map each unit file records (`measure.py run`); a file
+        written before it was recorded falls back to the registries' current
+        `seed_name`, and for a spec no group runs any more to
+        `measure.RETIRED_SPECS` (`Blocks_warm_CMAES_JSO_dimbudget`, the §72
+        gate's opt-in variant until §73, in runs 36418128133 / 36418132989).
         Unadjusted and outside the Holm family.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
         every q cell with no crashed or timed-out run (a q cell no external
@@ -694,21 +694,32 @@ composite registry's CMA-ES entries, the screens and their variants):
     with an explicit `popsize` > 10 (`RoundRobin_CMAES` −0.0002…+0.0019 on
     the families, Blocks unchanged).
 
-One block-scheduler default of DISCOVERY §72 changes the headline spec
-where it binds, and one option of it is opt-in (§72.8):
+Two block-scheduler defaults of DISCOVERY §72 change the headline spec
+where they bind (the gate since §73):
 
 *   **`first_round_fill=True`** in `Blocks_warm_CMAES_JSO`,
     `RegimeGate_oracle` and `Blocks_warm_CMAES_JSO_TRQ`: it changes
     100·d d2/q64 and d5/q64, and 20·d d2/q16, for all three specs.  §67's
     `RegimeGate_oracle` units and the §66/§71 TRQ numbers go stale in
     those cells.  It never acts at q = 1 or without a request cap.
-*   **`regime_gate="dim-budget"`** is opt-in, as
-    `Blocks_warm_CMAES_JSO_dimbudget` (named in `--strategies`): at
-    d ≥ 10 and ≤ 500·d on an unconstrained problem, whenever the evaluator
-    count is ≤ λ_default (10 at d = 10), it runs CMA-ES alone.  It shares
-    the portfolio's RNG streams, so a paired delta carries only the gate.
-    It is never applied to a spec with an arm the regime table does not
-    name (`Blocks_warm_CMAES_JSO_TRQ`).
+*   **`regime_gate="dim-budget"`** in `Blocks_warm_CMAES_JSO` (since
+    §73; opt-in as `Blocks_warm_CMAES_JSO_dimbudget` from §72.8 until
+    then, a name now gone from the registries): at d ≥ 10 and ≤ 500·d on
+    an unconstrained problem, whenever the evaluator count is ≤ λ_default
+    (10 at d = 10), it runs CMA-ES alone.  On the expensive track that is
+    100·d d10 at q ≤ 10 (q 1 and 4 of the grid) and 20·d d10 at q ≤ 10;
+    on the **cheap track** every unconstrained d ≥ 10 run at ≤ 500·d (a
+    few synchronous evaluators, fewer than λ_default: of the re-baseline
+    suites, `families-free` and `families-shapes` at d = 10; the IOH
+    suites run d 2/5), so **the §61 reference numbers of
+    `Blocks_warm_CMAES_JSO` at d ≥ 10 no longer reproduce** (its d ≤ 5
+    numbers and every other spec's do).  Every `Blocks_warm_CMAES_JSO`
+    unit of the expensive track before §73 (§62, §65, §67, §72's runs) is
+    the ungated spec in those cells.  `RegimeGate_oracle` (the oracle gate,
+    otherwise the same config) and `Blocks_warm_CMAES_JSO_TRQ` do not
+    change: the TRQ spec inherits the setting, but the gate is never
+    applied to a spec with an arm the regime table does not name, and its
+    runs are those of the ungated config (tested).
 
 Everywhere else these specs are bit-identical to before (§72.3,
 `tests/test_blocks_dim_budget_fill.py`).

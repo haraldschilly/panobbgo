@@ -707,21 +707,20 @@ def _plan_ids(*argv: str) -> List[str]:
 
 
 def test_trq_group_is_opt_in_and_runs_the_core_cells():
-    from panobbgo.harness_ioh import (
-        BLOCKS_VARIANT_NAMES,
-        TRUST_REGION_NAMES,
-        make_blocks_variant_strategies,
-        make_trust_region_strategies,
-    )
+    from panobbgo.harness_ioh import TRUST_REGION_NAMES, make_ioh_strategies, make_trust_region_strategies
 
     # The plan's copy of the names (plan imports no panobbgo) is the registry's: the opt-in candidates are
-    # the trust-region specs (§66, §69.5's RoundRobin_TRQ_r05) and the Blocks variants (§72's gate).
+    # the trust-region specs (§66, §69.5's RoundRobin_TRQ_r05, §71's failure-region candidates).
     assert ms.TRUST_REGION_SPECS == TRUST_REGION_NAMES and "RoundRobin_TRQ_r05" in ms.TRUST_REGION_SPECS
     assert {"RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"} <= set(ms.TRUST_REGION_SPECS)  # §71's candidates
-    assert ms.BLOCKS_VARIANT_SPECS == BLOCKS_VARIANT_NAMES == ("Blocks_warm_CMAES_JSO_dimbudget",)
-    assert ms.TRQ_SPECS == TRUST_REGION_NAMES + BLOCKS_VARIANT_NAMES
+    assert ms.TRQ_SPECS == TRUST_REGION_NAMES
     assert [s.name for s in make_trust_region_strategies(ms.TRUST_REGION_SPECS)] == list(ms.TRUST_REGION_SPECS)
-    assert [s.name for s in make_blocks_variant_strategies(ms.BLOCKS_VARIANT_SPECS)] == list(ms.BLOCKS_VARIANT_SPECS)
+    # §72's gated variant left the group when the gate became the headline default (§73): no registry
+    # builds it, and its old unit files keep their group and base spec through RETIRED_SPECS.
+    registry = {s.name for s in make_ioh_strategies() + make_trust_region_strategies()}
+    assert set(ms.RETIRED_SPECS) == {"Blocks_warm_CMAES_JSO_dimbudget"} and not set(ms.RETIRED_SPECS) & registry
+    assert ms.group_of("Blocks_warm_CMAES_JSO_dimbudget") == "trq"
+    assert ms._registry_rng_identity()["Blocks_warm_CMAES_JSO_dimbudget"] == ms.HEADLINE_SPEC
     assert not any(ms.is_external(n) for n in ms.TRQ_SPECS) and ms.GROUPS["trq"] == ()
     assert all(ms.group_of(n) == "trq" for n in ms.TRQ_SPECS) and ms.group_of("RoundRobin_CMAES") == "core"
     specs = ms._strategies("trq")
@@ -730,7 +729,7 @@ def test_trq_group_is_opt_in_and_runs_the_core_cells():
     rng = {s.name: s.rng_identity for s in specs}
     assert rng["RoundRobin_TRQ_r05"] == rng["RoundRobin_TRQ"] == "RoundRobin_TRQ"
     assert rng["RoundRobin_TRQ_fa"] == rng["RoundRobin_TRQ_aware"] == "RoundRobin_TRQ"
-    assert rng["Blocks_warm_CMAES_JSO_dimbudget"] == rng["Blocks_warm_CMAES_JSO_TRQ"] == ms.HEADLINE_SPEC
+    assert rng["Blocks_warm_CMAES_JSO_TRQ"] == ms.HEADLINE_SPEC
     # 'all' is the measurement of record: core and the GP groups, not trq.
     assert "trq" not in ms.DEFAULT_GROUPS and set(ms.DEFAULT_GROUPS) | {"trq"} == set(ms.GROUPS)
     default = _plan_ids()
@@ -765,7 +764,9 @@ def _with_trq(tmp: Path, planned: List[str], qs=(1, 4), bm=20) -> List[str]:
 
     The §69.5 / §72 candidates: ``RoundRobin_TRQ_r05`` 0.10 below RoundRobin_TRQ on the ellipsoid and 0.05
     above on rastrigin, ``Blocks_warm_CMAES_JSO_dimbudget`` the headline spec's scores exactly (the gate does not
-    bind) except +0.1 on run 2 (rastrigin instance 0) of seed 7 at q = 4.  §71's candidates:
+    bind) except +0.1 on run 2 (rastrigin instance 0) of seed 7 at q = 4.  The gated variant is retired since §73
+    (:data:`measure.RETIRED_SPECS`): its rows stand for the unit files of runs 36418128133 / 36418132989, which
+    carry it and record no ``rng_identity``.  §71's candidates:
     ``RoundRobin_TRQ_aware`` RoundRobin_TRQ's scores exactly (no failures), ``RoundRobin_TRQ_fa`` too except
     +0.04 on rastrigin at q = 1.
     """
@@ -812,6 +813,13 @@ def test_aggregate_treats_trq_specs_as_secondary(tmp_path):
             r = cell["strategies"][n]
             assert (r["external"], r["in_pool"], r["group"]) == (False, False, "trq")
             assert r["vs_pool_best"]["aocc"]["n_seeds"] == 3 and r["complete"]
+        # A retired spec in old files (§73) keeps its group and is planned on its group's seeds there.
+        r = cell["strategies"]["Blocks_warm_CMAES_JSO_dimbudget"]
+        assert (r["group"], r["n_seeds"], r["planned_seeds"], r["complete"]) == ("trq", 3, 3, True)
+        assert "Blocks_warm_CMAES_JSO_dimbudget" in cell["planned"]
+    # Not planned where its group did not run: without the trq units it is neither planned nor missing.
+    for c in ("free/d2/b20/q1", "free/d2/b20/q4"):
+        assert not set(ms.RETIRED_SPECS) & set(before["cells"][c]["planned"] + before["cells"][c]["missing"])
     md = ms.summary_markdown(summary)
     headline = md.split("## Headline\n", 1)[1].split("\n## ", 1)[0]
     # The best other panobbgo spec is a trq spec: RoundRobin_TRQ_fa (0.645 + b at q = 1; at q = 4 it ties RoundRobin_TRQ
@@ -905,7 +913,7 @@ def test_secondary_specs_get_a_paired_delta_against_the_headline(tmp_path):
         assert rows[ms.HEADLINE_SPEC]["vs_headline"] is None
         assert all("vs_headline" not in r for r in rows.values() if r["external"])
         secondary = {n for n, r in rows.items() if r.get("vs_headline")}
-        assert secondary == {"RoundRobin_CMAES", *ms.TRQ_SPECS}
+        assert secondary == {"RoundRobin_CMAES", *ms.TRQ_SPECS, *ms.RETIRED_SPECS}
         for n in secondary:
             st = rows[n]["vs_headline"]
             assert set(st) == set(ms.METRICS)

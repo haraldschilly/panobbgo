@@ -61,11 +61,10 @@ apart in the aggregate.  The groups:
     (``harness_ioh.make_trust_region_strategies``: ``RoundRobin_TRQ``,
     ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA``,
     ``RoundRobin_TRQ_r05``, and §71's failure-region candidates
-    ``RoundRobin_TRQ_fa`` / ``RoundRobin_TRQ_aware``) and the opt-in
-    ``Blocks_warm_CMAES_JSO`` variants
-    (``harness_ioh.make_blocks_variant_strategies``: §72's
-    ``Blocks_warm_CMAES_JSO_dimbudget``), on every cell like core, in shards
-    of their own.  Secondary panobbgo specs in the aggregate: not in the
+    ``RoundRobin_TRQ_fa`` / ``RoundRobin_TRQ_aware``), on every cell like
+    core, in shards of their own.  (Until DISCOVERY §73 the group also ran
+    ``Blocks_warm_CMAES_JSO_dimbudget``, §72's dim/budget gate; the gate is
+    now the headline spec's default, see :data:`RETIRED_SPECS`.)  Secondary panobbgo specs in the aggregate: not in the
     pool, not the headline; each gets a paired delta against the headline
     spec (:func:`summarize`, ``vs_headline``) and, when it shares another
     spec's RNG streams (``seed_name``), against that base spec
@@ -132,13 +131,21 @@ TRUST_REGION_SPECS: Tuple[str, ...] = (
     "RoundRobin_TRQ_aware",
 )
 
-#: The opt-in ``Blocks_warm_CMAES_JSO`` variants of the ``trq`` group
-#: (``harness_ioh.BLOCKS_VARIANT_NAMES``: §72's dim/budget gate; pinned equal by a test).
-BLOCKS_VARIANT_SPECS: Tuple[str, ...] = ("Blocks_warm_CMAES_JSO_dimbudget",)
-
 #: The specs of the ``trq`` group, the **opt-in candidates** awaiting a fresh-seed
 #: confirmation (the name is historical: it began as the §66 trust-region group).
-TRQ_SPECS: Tuple[str, ...] = TRUST_REGION_SPECS + BLOCKS_VARIANT_SPECS
+TRQ_SPECS: Tuple[str, ...] = TRUST_REGION_SPECS
+
+#: Specs the groups ran once and no longer do, so that their old unit files still
+#: aggregate as they did: name -> (group, RNG identity).  ``Blocks_warm_CMAES_JSO_dimbudget``
+#: (``trq``, on the headline spec's streams) was §72's opt-in dim/budget gate; since
+#: DISCOVERY §73 the gate is the headline spec's default, and the variant is gone from
+#: the registries.  Its files in runs 36418128133 / 36418132989 predate the per-unit
+#: ``rng_identity``, so :func:`base_specs` falls back to this map; runs dispatched later but
+#: before §73 (the failure-preset runs 36535041375 / 36535045456 at c43c199) record it, and
+#: need the map only for the group and the planned seeds.
+RETIRED_SPECS: Dict[str, Tuple[str, str]] = {
+    "Blocks_warm_CMAES_JSO_dimbudget": ("trq", "Blocks_warm_CMAES_JSO"),
+}
 
 #: Group -> the external baselines it runs (``core``: the panobbgo specs too,
 #: resolved at run time from ``make_ioh_strategies``; ``trq``: no external,
@@ -254,7 +261,9 @@ TRQ_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
 #: variant at most 0.5 s.  The three first specs, re-measured in that run next to the two,
 #: came out at 0.7-1.5x :data:`TRQ_LAPTOP_SECONDS` per cell (a one-seed p90 is noisy, and
 #: five specs now share the four processes); the table is kept, the generous
-#: :data:`TRQ_RUNNER_FACTOR` covers the spread.
+#: :data:`TRQ_RUNNER_FACTOR` covers the spread.  The gated variant left the group with
+#: DISCOVERY §73 (the gate is the headline default); its share is kept in the table, a small
+#: overestimate.
 CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
     (2, 40, 1): 0.08, (2, 40, 4): 0.07, (2, 40, 16): 0.09,
     (2, 200, 1): 0.24, (2, 200, 4): 0.51, (2, 200, 16): 0.91, (2, 200, 64): 0.69,
@@ -852,17 +861,13 @@ def fp_label(payload: Dict[str, Any]) -> str:
 
 def _strategies(group: str) -> List[Any]:
     from panobbgo.harness_baselines import make_baseline_strategies
-    from panobbgo.harness_ioh import (
-        make_blocks_variant_strategies,
-        make_ioh_strategies,
-        make_trust_region_strategies,
-    )
+    from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
 
     names = list(GROUPS[group])
     specs = list(make_ioh_strategies()) if group == "core" else []
     if group == "trq":
-        # The opt-in candidates: the trust-region specs and the Blocks variants.
-        specs = make_trust_region_strategies(TRUST_REGION_SPECS) + make_blocks_variant_strategies(BLOCKS_VARIANT_SPECS)
+        # The opt-in candidates: the trust-region specs.
+        specs = make_trust_region_strategies(TRUST_REGION_SPECS)
         if [s.name for s in specs] != list(TRQ_SPECS):
             raise ValueError(f"trq: the harness factories gave {[s.name for s in specs]}, want {TRQ_SPECS}")
     by_name = {s.name: s for s in make_baseline_strategies(names)}
@@ -1035,7 +1040,12 @@ def is_external(name: str) -> bool:
 
 
 def group_of(name: str) -> str:
-    """The group a strategy runs in (a panobbgo spec: ``core``, unless an opt-in group names it)."""
+    """The group a strategy runs in (a panobbgo spec: ``core``, unless an opt-in group names it).
+
+    A spec of :data:`RETIRED_SPECS` keeps the group it ran in.
+    """
+    if name in RETIRED_SPECS:
+        return RETIRED_SPECS[name][0]
     return next((g for g, names in {**GROUPS, **GROUP_SPECS}.items() if name in names), "core")
 
 
@@ -1244,11 +1254,14 @@ def base_specs(payloads: Iterable[Dict[str, Any]]) -> Dict[str, str]:
 
 
 def _registry_rng_identity() -> Dict[str, str]:
-    """``spec -> rng_identity`` of every panobbgo spec the groups can run (the fallback of :func:`base_specs`)."""
-    from panobbgo.harness_ioh import make_blocks_variant_strategies, make_ioh_strategies, make_trust_region_strategies
+    """``spec -> rng_identity`` of every panobbgo spec the groups can run or once ran (:data:`RETIRED_SPECS`).
 
-    specs = [*make_ioh_strategies(), *make_trust_region_strategies(), *make_blocks_variant_strategies()]
-    return {s.name: s.rng_identity for s in specs}
+    The fallback of :func:`base_specs`.
+    """
+    from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
+
+    specs = [*make_ioh_strategies(), *make_trust_region_strategies()]
+    return {**{n: ident for n, (_, ident) in RETIRED_SPECS.items()}, **{s.name: s.rng_identity for s in specs}}
 
 
 def holm(pvalues: Dict[str, float]) -> Dict[str, float]:
@@ -1266,16 +1279,27 @@ def holm(pvalues: Dict[str, float]) -> Dict[str, float]:
 def _expected(
     cells: Dict[Cell, Dict[str, Dict[Key, Obs]]], planned_units: Optional[Sequence[str]], core_names: Sequence[str]
 ) -> Dict[Cell, Dict[str, Set[int]]]:
-    """``cell -> strategy -> planned seeds``: from the plan, else every strategy seen, on the cell's seeds."""
+    """``cell -> strategy -> planned seeds``: from the plan, else every strategy seen, on the cell's seeds.
+
+    A spec of :data:`RETIRED_SPECS` seen in a planned cell (an old run's files) is planned on the seeds
+    its group was planned on there.
+    """
     out: Dict[Cell, Dict[str, Set[int]]] = {}
+    group_seeds: Dict[Tuple[Cell, str], Set[int]] = {}
     if planned_units is not None:
         for text in planned_units:
             u = Unit.parse(text)
             names = list(GROUPS[u.group]) + list(GROUP_SPECS.get(u.group, ()))
             names += list(core_names) if u.group == "core" else []
-            per = out.setdefault((u.preset_token, u.dim, u.bm, u.q), {})
+            cell: Cell = (u.preset_token, u.dim, u.bm, u.q)
+            per = out.setdefault(cell, {})
             for n in names:
                 per.setdefault(n, set()).add(u.seed)
+            group_seeds.setdefault((cell, u.group), set()).add(u.seed)
+        for cell, strats in cells.items():
+            for n in strats:
+                if n in RETIRED_SPECS and cell in out and n not in out[cell]:
+                    out[cell][n] = set(group_seeds.get((cell, RETIRED_SPECS[n][0]), set()))
     for cell, strats in cells.items():
         if planned_units is None or cell not in out:
             seeds = {k[0] for obs in strats.values() for k in obs}
@@ -1539,7 +1563,7 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
     * ``vs_headline`` per secondary panobbgo spec: its paired delta against
       :data:`HEADLINE_SPEC` on the common runs, per metric (descriptive,
       unadjusted, outside the Holm family; :func:`vs_headline`).  This is
-      how an opt-in candidate (the §72 gate, the TRQ variants) is judged;
+      how an opt-in candidate (the TRQ variants; the §72 gate until §73) is judged;
     * ``vs_base`` (with ``base_spec``) per panobbgo spec that draws another
       spec's RNG streams (its ``seed_name``, :func:`base_specs`) when that
       spec ran in the cell: the same paired delta against it, so the delta
@@ -1787,7 +1811,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             "seeds on the cell's common runs, on the headline metric and on AOCC (at q = 1 they are the same).  "
             "This is where an opt-in candidate is judged against the spec it would replace or join.  "
             "*equal*: pairs with exactly equal, nonzero headline-metric values (ties at 0 are shown apart, `+k at 0`); "
-            "it means something only for a variant sharing the headline's `seed_name` (`Blocks_warm_CMAES_JSO_dimbudget`, "
+            "it means something only for a variant sharing the headline's `seed_name` (e.g. "
             "`RegimeGate_oracle`), which is identical where its option does not act — on the same FP class: "
             "`(FP)` marks pairs across two FP classes, where equal runs may differ in the last bits.  "
             "**Descriptive**: unadjusted, not part of the Holm family.  The `RoundRobin_TRQ` specs are nearly "

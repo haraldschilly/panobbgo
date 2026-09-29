@@ -206,9 +206,11 @@ characterised; what is left is choosing the arm per problem.  In order
    (§45.1, §46.4) wait for Harald's broader suite
    (`planning/DESIGN_suite_2026-09-14.md`: *d* 10/20, full BBOB,
    synthetic families with swept knobs, constrained/noisy as own axes).
-   §72 (2026-09-28): `first_round_fill` is the spec's default; the
-   narrower non-oracle `regime_gate="dim-budget"` is opt-in
-   (`Blocks_warm_CMAES_JSO_dimbudget`) until a fresh-seed confirmation.
+   §72 (2026-09-28): `first_round_fill` is the spec's default.  §73
+   (2026-09-29): the narrower non-oracle `regime_gate="dim-budget"` is
+   the spec's default too, after a fresh-seed confirmation passed the
+   rule Harald fixed before it (d10/100·d/q4 +0.011, 11/12, identical
+   elsewhere); the oracle gate still waits for the broader suite.
 6. **Standing rules.**  No further bandit tuning without a new
    mechanism (§31); the composite registry's three CMA-ES specs stay a
    frozen contract pending Harald.

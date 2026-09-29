@@ -6523,7 +6523,7 @@ seeds above.
   the pre-declared rule; `regime_gate="dim-budget"` is the default and
   `Blocks_warm_CMAES_JSO_dimbudget` is gone from the registries.
 
-## 73. Fresh-seed confirmation of §72 (seeds 3001–3012): the dim/budget gate passes the pre-declared rule and becomes the headline default; Holm 4 wins / 1 loss (d2/q16) / 4 unresolved; the trust-region candidates lead every cell with the ellipsoid and trail the headline spec at d = 10 without it (2026-09-29)
+## 73. Fresh-seed confirmation of §72 (seeds 3001–3012): the dim/budget gate passes the pre-declared rule and becomes the headline default; Holm 4 wins / 1 loss (d2/q16) / 4 unresolved; the trust-region candidates lead every cell but d10/q64 with the ellipsoid and trail the headline spec at d = 10 without it (2026-09-29)
 
 **Runs.**  Two `measure.yml` runs, both dispatched at **e86eee3** on the
 fresh optimiser seeds **3001–3012** (unused: §67 took 1001–1012, §72.4
@@ -6656,7 +6656,7 @@ quadratic model; that is what the TRQ arm addresses (§73.4).
 
 `tables.md` has every cell; paired against the headline spec as
 dispatched (ungated; with the gate it is +0.011 higher at d10/q4 and
-+0.001 at d10/q1, identical elsewhere).
++0.001 at d10/q1, identical in every other cell).
 
 **With all families**, the three TRQ specs lead the headline spec
 11–12/12 in every cell but d10/q64, and the pool's best in every cell
@@ -6665,7 +6665,7 @@ over the 12 cells:
 
 * `RoundRobin_TRQ_r05` − pool best: +0.029 (d10/q64) … +0.301 (d2/q4),
   CI above 0 in all 12;
-* `Blocks_warm_CMAES_JSO_TRQ` − headline: +0.049 … +0.204 in 11 cells,
+* `Blocks_warm_CMAES_JSO_TRQ` − headline: +0.047 … +0.204 in 11 cells,
   +0.007 [−0.003, +0.018] 5/12 at d10/q64;
 * `RoundRobin_TRQ` − headline: +0.053 … +0.318 in 11 cells, −0.008
   [−0.016, +0.001] 3/12 at d10/q64.
@@ -6687,7 +6687,7 @@ batch cells' time axis penalises it).
 So the claim "every TRQ candidate beats both references in every cell,
 and without the ellipsoid too" holds with the ellipsoid and at d ≤ 5,
 **not at d = 10 without the ellipsoid**.  At d = 10 the headline spec
-and the pool's best score 0 on the ellipsoid (every run), the TRQ
+and the pool's best score ≈ 0 on the ellipsoid (every run), the TRQ
 specs 0.04–0.85; that one family carries their d = 10 lead.  Ex
 ellipsoid, the TRQ specs lose mostly on ackley (d10/q4: r05 0.153,
 `Blocks_warm_CMAES_JSO_TRQ` 0.146, headline 0.226, TuRBO1 0.263; the

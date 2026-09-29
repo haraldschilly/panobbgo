@@ -97,8 +97,8 @@ extra).
       pool's best in all but one (r05 − pool best +0.029 … +0.301).
       Without the ellipsoid they still lead at d ≤ 5 in most cells, but
       at d = 10 all three trail the headline spec in all four q cells
-      (−0.025 … −0.005; the d = 10 lead is the ellipsoid, where everything
-      else scores 0).  r05 − `RoundRobin_TRQ`: ahead in 8 of 12 cells,
+      (−0.040 … −0.005; the d = 10 lead is the ellipsoid, where everything
+      else scores ≈ 0).  r05 − `RoundRobin_TRQ`: ahead in 8 of 12 cells,
       never behind.
       **Proposal for Harald (not added, not dispatched):** a pre-declared
       confirmation of a TRQ-including headline candidate (e.g.
@@ -255,7 +255,7 @@ extra).
       (parity on fresh seeds, §73.2); d10/q4 by `regime_gate="dim-budget"`,
       **the headline default since §73** (the pre-declared rule passed on
       seeds 3001–3012: +0.011 [+0.006, +0.016] 11/12 against the ungated
-      spec, identical elsewhere; `Blocks_warm_CMAES_JSO_dimbudget` is gone).
+      spec, identical in every other main-grid cell; `Blocks_warm_CMAES_JSO_dimbudget` is gone).
       §73's Holm family (ungated spec): 4 wins, 1 loss (d2/q16 vs qLogEI,
       −0.014, p_holm 0.002), 4 unresolved (with the gate d10/q4 reads
       +0.004, p_holm 0.100, post hoc).  Open from it: the d2/q16 loss (b)

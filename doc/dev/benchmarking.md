@@ -722,8 +722,9 @@ d = 2 and 0.3–0.8e-4 at d = 5.  `official_from_repo_aocc` converts a stored AO
 exactly, so `mabbob_compare.py` compares like with like.  All scores use `f(x)`,
 which is what the IOH logger writes as `raw_y`: not `f(x) − f.optimum.y`, and
 rounded to 10 decimals.  The optimum (4.5e-13 to 1.1e-10) is below the lower
-target.  We do not round; on four replayed runs that made our score up to 1.8e-5
-higher than `iohinspector`'s, far below any difference this comparison can resolve.
+target.  We do not round.  On a few replayed runs that made our score higher than
+`iohinspector`'s by up to 1.8e-5 in one check and 4e-7 in another, far below any
+difference this comparison can resolve.
 Logged runs are cut at the budget and held at their last value to the end
 (NeighborhoodAdaptiveDE logs up to 4050 / 10050, PSS stops at 369 at d = 2).
 

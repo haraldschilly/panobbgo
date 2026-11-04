@@ -677,7 +677,9 @@ def _merge_row_chunks(suite: str, pairs: Sequence[Tuple[int, Any]]) -> List[Tupl
             raise ValueError(f"{suite}: seed {seed} has a run in more than one row chunk")
         runs.sort(key=lambda r: (r.dim, r.instance, r.strategy_name, r.rep))
         ids = sorted({res.fp_env_id for res in results}, key=str)
-        merged.append((seed, dataclasses.replace(results[0], runs=runs, fp_env_id=_merged_fp_id(ids))))
+        # A mixed file has no one environment to describe (as in _aggregate_ioh).
+        fp_env = results[0].fp_env if len(ids) == 1 else None
+        merged.append((seed, dataclasses.replace(results[0], runs=runs, fp_env_id=_merged_fp_id(ids), fp_env=fp_env)))
     return merged
 
 

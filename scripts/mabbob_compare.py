@@ -438,7 +438,7 @@ def print_report(report: Dict[str, Any], out: Any = None) -> None:
         print(text, file=out)
 
     say(f"Seeds: {report['seeds']}   fp_env_id: {report['fp_env_ids']}")
-    if len(report["fp_env_ids"]) > 1:
+    if len(report["fp_env_ids"]) > 1 or any(str(i).startswith("mixed:") for i in report["fp_env_ids"]):
         say("WARNING: the runs come from several floating-point environments")
     say(
         "Metric: the competition's AOCC (d 2 and 5, 2000*d, bounds 1e-8..1e2).  A CI is a percentile bootstrap over rows."

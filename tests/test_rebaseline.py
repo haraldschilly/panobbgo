@@ -925,11 +925,14 @@ def test_plan_command_refuses_a_heldout_dispatch_without_a_seed(capsys):
 
 
 def test_merged_row_chunks_carry_every_fp_id():
-    a = SimpleNamespace(fp_env_id="a", runs=[])
-    b = SimpleNamespace(fp_env_id="b", runs=[])
+    a = SimpleNamespace(fp_env_id="a", fp_env={"id": "a"}, runs=[])
+    b = SimpleNamespace(fp_env_id="b", fp_env={"id": "b"}, runs=[])
     with patch.object(rb.dataclasses, "replace", lambda res, **kw: kw):
         [(_seed, merged)] = rb._merge_row_chunks("s", [(42, a), (42, b)])
-    assert merged["fp_env_id"] == "mixed:a,b"
+    assert merged["fp_env_id"] == "mixed:a,b" and merged["fp_env"] is None
+    with patch.object(rb.dataclasses, "replace", lambda res, **kw: kw):
+        [(_seed, merged)] = rb._merge_row_chunks("s", [(42, a)])
+    assert merged["fp_env_id"] == "a" and merged["fp_env"] == {"id": "a"}
 
 
 def test_mabbob_plan_has_one_entry_per_seed_and_row_chunk():

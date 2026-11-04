@@ -80,6 +80,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+import zlib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -273,6 +274,7 @@ def _fetch_members(url: str, names: Sequence[str], attempts: int = 4) -> Dict[st
             TimeoutError,
             OSError,
             zipfile.BadZipFile,
+            zlib.error,
             KeyError,
         ) as exc:
             last = exc

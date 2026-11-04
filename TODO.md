@@ -294,6 +294,14 @@ The main line is roadmap §4 (D failure model, A+B learned probe→select
 with forecast allocation, C new sharing payloads) after step 2 above.
 Cheap-track items, in GOAL §2c order:
 
+- [ ] **Past-year competitions as the tuning yardstick.**  The MA-BBOB
+      head-to-head on the official rows is built (`scripts/mabbob_compare.py`,
+      `doc/dev/benchmarking.md`, "Official MA-BBOB instances").  Next: GNBG
+      2024–2026 and CEC in the same form (their official instances, a tune and a
+      held-out split, the published entries); and an unseen-instance check on
+      MA-BBOB, running the NeighborhoodAdaptiveDE code ourselves (Zenodo 15074959,
+      CC BY 4.0) on freshly generated instances, since the entries may be tuned
+      on the 1000 public rows.
 - [ ] **Probe / regime detector** (becomes roadmap A): target the per-cell
       oracle gap +0.015…+0.039 (§53); signal observable early, e.g. the
       first arm's progress rate (§52.4).  The oracle gate (§45) is the seam;

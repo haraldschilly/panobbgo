@@ -665,6 +665,106 @@ uv run python scripts/ioh_benchmark.py run --families-sealed --output claim_fami
 *   Cost at 500·d (one BLAS thread): ≈ 7 min (MA-BBOB) and ≈ 3–6 min
     (families) per strategy and seed.
 
+## Official MA-BBOB instances
+
+The head-to-head with published entries of the GECCO MA-BBOB Anytime
+competition (rules: <https://iohprofiler.github.io/competitions/mabbob25>; d 2
+and 5, `2000·d`, mean AOCC with bounds `1e-8..1e2`): `panobbgo/mabbob_official.py`,
+worker kind `"MA-BBOB-official"`, `scripts/mabbob_compare.py`.
+
+```bash
+uv run python scripts/ioh_benchmark.py run --mabbob-official --baselines \
+    --strategies RoundRobin_CMAES Blocks_warm_CMAES_JSO --seeds 42 --output tune.json
+uv run python scripts/mabbob_compare.py compare tune.json --json-out cmp.json
+```
+
+*   **Not the `"MA-BBOB"` kind.**  The competition publishes 1000 instances as
+    rows of three CSV files; `ManyAffine(instance=N)` is something else (no id
+    up to 1100 matches a row), so `--full` and every other preset are not the
+    official set.  In this kind `instance` is the row index.
+*   **Data.**  IOHprofiler/IOHdata states no licence, so the CSV files are not
+    vendored: `ensure_data` fetches `MABBOB_GettingStarted.zip` from a URL pinned
+    to a commit, verifies each file's SHA-256 and caches them in
+    `~/.cache/panobbgo/mabbob_official` (`PANOBBGO_MABBOB_DATA` overrides it).
+    The parent sends the worker the row, so the worker reads no file.
+*   **Develop on tune, once on held-out.**  The rows split 500/500 by salted
+    SHA-256 of the index (`split_rows`, salt fixed in code).  Tune
+    (`--mabbob-official`) is what we develop on.  Held-out
+    (`--mabbob-official-heldout`) runs **once per frozen candidate**, to report
+    it; a number from it that steers a decision burns the split, as with the
+    sealed set.  `IOHBatterySpec` and `_run_one` refuse a held-out row without
+    `heldout=True`; a held-out battery has no knobs (no `--reps`,
+    `--budget-multiplier`, `--log-features`, `--virtual-workers`, `--legacy`), and
+    prints a banner.  This is a separate discipline from the sealed test set,
+    which stays as it is.
+*   **Conservative for us.**  The entries may have been tuned on these same
+    1000 public rows, so their score on either split may be optimistic against
+    the unseen instances the competition judges on.
+*   **Unit of inference.**  The comparison is over rows.  An entry has one run
+    per row, so one seed for us is the like-for-like setting; with several
+    seeds the tool averages per row first.
+*   **Comparison.**  Per split, per dimension and on the per-row mean of both:
+    mean AOCC, paired delta with a percentile bootstrap CI over rows, wins /
+    losses / ties, and the delta by dominant BBOB function, by its COCO class,
+    and attributed by weight over all rows.  It refuses other budgets or bounds,
+    asynchronous and virtual-clock runs, and marks partial coverage as
+    `PARTIAL ... not a result`.
+
+**The metric.**  `official_aocc` is what `iohinspector` computes
+(`transform_fval(df, 1e-8, 1e2)`, `get_aocc`): the best-so-far as a step function
+over `[0, B]`, with the first value also over `[0, 1)`.
+`ioh_runner.aocc` (a frozen contract, unchanged) is the plain mean over the `B`
+evaluations.  They differ by exactly `(q(1) − q(B))/B` for the normalised score
+`q`, at most `1/B`; on the entries' data the repo's is higher by 1.0–2.1e-4 at
+d = 2 and 0.3–0.8e-4 at d = 5.  `official_from_repo_aocc` converts a stored AOCC
+exactly, so `mabbob_compare.py` compares like with like.  All scores use
+`f(x) − f.optimum.y` (the logged `raw_y`; the optimum is about `7e-13`, not 0).
+Logged runs are cut at the budget and held at their last value to the end
+(NeighborhoodAdaptiveDE logs up to 4050 / 10050, PSS stops at 369 at d = 2).
+
+**Validation against `iohinspector` 0.0.8** on all four entries (2026-11-04; the
+fixture `tests/data/mabbob_official_fixture.json` and the reference file pin it):
+
+| Entry | d | `iohinspector` | `official_aocc` | Repo `aocc` |
+|-------|---|---------------|-----------------|-------------|
+| NeighborhoodAdaptiveDE | 2 / 5 | 0.866839 / 0.807771 | 0.866839 / 0.807771 | 0.867052 / 0.807856 |
+| ERADS | 2 / 5 | 0.836957 / 0.751084 | **0.837120** / 0.751084 | 0.837332 / 0.751159 |
+| PSS | 2 / 5 | 0.601940 / 0.511605 | 0.601940 / 0.511605 | 0.602059 / 0.511654 |
+| ACA | 2 / 5 | 0.482176 / 0.327829 | 0.482176 / 0.327829 | 0.482274 / 0.327855 |
+
+*   Per row, `official_aocc` and `iohinspector` agree to below 5e-16.
+*   **ERADS d = 2 differs by 1.63e-4 because `iohinspector` loses one run.**
+    Its loader filters `raw_y.diff() != 0` over the whole file, not per run.
+    Row 452 is below the lower target from evaluation 1 and logs `0.0000000000`
+    twice, and row 451 ends on the same value, so all its lines go and the mean
+    is over 999 rows.  With row 452 removed the two agree.  We keep it, scoring 1.0.
+*   **The self-reported PSS figures (figshare 26026381: 0.5911 / 0.4862) are of
+    another run on other instances.**  Its notebook's formula on its own data
+    reproduces them to all printed digits (0.5911357090 / 0.4861510330).  That
+    data does not replay on the official rows but does on the CSV files inside
+    the NeighborhoodAdaptiveDE zip, 20 of 20 sampled rows at both dims, and it
+    evaluates up to 3685 points at d = 2 where the baseline's PSS evaluates 369.
+    So there are at least two public 1000-row sets: use the baseline PSS here,
+    never the self-reported figure.  Those CSV files in the winner's zip do not
+    describe its own logged data, which is on the official rows.
+*   **Replay.**  Evaluating every logged best `x` of every entry on the worker
+    kind (`ioh` 0.3.22; the data is from 0.3.14 and 0.3.17) reproduces the logged
+    best `y`, so the entries' rows are the official rows: all 8000 runs, relative
+    error ≤ 3e-7 for `y > 1e-3`.  Below that the absolute error is ≤ 1.1e-10,
+    except three runs of ERADS at d = 5 (rows 77, 532, 820: 2.9e-7, 1.2e-8, 3.5e-9;
+    unexplained).  They enter no score: entries are scored from their logged values.
+
+**The reference file** `benchmarks/references/mabbob_official_entries.json`
+holds per-row official AOCC, source and attribution for
+NeighborhoodAdaptiveDE (2025 winner; CC BY 4.0, Zenodo 15074959) and the three
+baselines of the getting-started archive.  Regenerate it with
+`mabbob_compare.py build-reference` under `python -I`; it parses the downloads as
+data and runs nothing from them.
+
+**At scale**: the opt-in suites `ioh-mabbob-official-tune` and
+`ioh-mabbob-official-heldout` of `rebaseline.yml` (next section; one seed per job,
+four jobs per split).
+
 ## Comparability
 
 Result files from before **2026-09-25** are not comparable with newer ones:
@@ -790,6 +890,21 @@ paired and in one FP environment:
 
 ```bash
 gh workflow run rebaseline.yml -f suites=ioh-cma-ab,ioh-cma-ab-bbob-b200,ioh-cma-ab-bbob-b500 -f seeds=12 -f release=none
+```
+
+`ioh-mabbob-official-tune` and `ioh-mabbob-official-heldout` run the head-to-head
+on the official rows ("Official MA-BBOB instances" above): `RoundRobin_Random`,
+`RoundRobin_CMAES`, `Blocks_warm_CMAES_JSO`, `RoundRobin_JSO`,
+`Baseline_pycma_BIPOP`.  They shard over rows as well as seeds
+(`Suite.instance_chunks`; shard `01c03` is seed chunk 1, row chunk 3 of 4) and
+`aggregate` merges the chunks of a seed.  One seed is the like-for-like setting,
+and it costs 1.8 CPU-h per split (12.7 CPU-s per row, measured locally on 5 tune
+rows), so 4 jobs of ~7 min on 4-core runners, ~20 min if a runner is 3x slower;
+that is 0.5–1.3 runner-hours per split.  Analyse with `mabbob_compare.py compare`
+on `ref_ioh_mabbob-official_h2h.json` (`ref_ioh_mabbob-official-heldout_h2h.json`):
+
+```bash
+gh workflow run rebaseline.yml -f suites=ioh-mabbob-official-tune -f seeds=42, -f release=none
 ```
 
 The last job aggregates the shards into the reference files:

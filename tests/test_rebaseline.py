@@ -231,13 +231,14 @@ def _ioh_shard(
     aocc: Optional[float] = None,
     blas_threads: Optional[int] = None,
     fp_env_id: Optional[str] = None,
+    instance: int = 0,
 ):
     results = []
     for seed in seeds:
         run = IOHRunRecord(
             problem_kind="MA-BBOB",
             dim=2,
-            instance=0,
+            instance=instance,
             strategy_name=strategy,
             rep=0,
             budget=10,
@@ -307,7 +308,9 @@ def _fake_shard(suite, seeds, shard: str, root: Path) -> None:
             HarnessResult(HarnessConfig(seed=seed), "", 0, 0.0, [], value).save(str(d / f"{suite.name}_s{seed}.json"))
     elif suite.kind == "ioh":
         path = d / f"{suite.name}_shard{shard}.json"
-        _ioh_shard(path, seeds, battery=f"ioh-{suite.battery}", strategy=f"{suite.name}/A", aocc=value)
+        # A row-chunked suite: each chunk of a seed holds other rows.
+        row = int(shard.split("c")[1]) if "c" in shard else 0
+        _ioh_shard(path, seeds, battery=f"ioh-{suite.battery}", strategy=f"{suite.name}/A", aocc=value, instance=row)
     else:
         specs = (f"{suite.name}/A", f"{suite.name}/B")
         rows = [{"seed": s, "s": spec, "aocc": value, "err": None} for s in seeds for spec in specs]
@@ -885,3 +888,86 @@ def test_annotated_tags_are_dereferenced(tmp_path, monkeypatch):
     assert release["tag"] == "rebaseline-x"
     with pytest.raises(ValueError, match="points at abc1234"):
         _publish(out, monkeypatch, target="def5678", releases=draft, tags={"rebaseline-x": ("annotated", "abc1234")})
+
+
+# ---------------------------------------------------------------------------
+# The head-to-head on the official MA-BBOB rows
+# ---------------------------------------------------------------------------
+
+MABBOB_SUITES = ("ioh-mabbob-official-tune", "ioh-mabbob-official-heldout")
+
+
+def test_mabbob_suites_are_opt_in_and_need_release_none():
+    assert not {s.name for s in rb.resolve_suites("all")} & set(MABBOB_SUITES)
+    for name in MABBOB_SUITES:
+        assert rb.SUITES[name].opt_in and rb.SUITES[name].extras == ("baselines",)
+        with pytest.raises(ValueError, match="release=none"):
+            rb.check_dispatch([rb.SUITES[name]], "auto")
+        rb.check_dispatch([rb.SUITES[name]], "none")
+
+
+def test_mabbob_plan_has_one_entry_per_seed_and_row_chunk():
+    entries = rb.plan([rb.SUITES["ioh-mabbob-official-tune"]], [42])
+    n = rb.MABBOB_INSTANCE_CHUNKS
+    assert [e["shard"] for e in entries] == [f"01c{c:02d}" for c in range(1, n + 1)]
+    assert {e["seeds"] for e in entries} == {"42"} and {e["extras"] for e in entries} == {"baselines"}
+    assert len(rb.plan([rb.SUITES["ioh-mabbob-official-tune"]], [42, 7])) == 2 * n
+    # No suite without row chunks changes.
+    assert rb.plan([rb.SUITES["ioh-quick"]], [42])[0]["shard"] == "01"
+
+
+def test_mabbob_shard_commands_name_the_battery_the_specs_and_the_chunk(tmp_path):
+    n = rb.MABBOB_INSTANCE_CHUNKS
+    [(tune, _)] = rb.shard_commands(rb.SUITES["ioh-mabbob-official-tune"], [42], "01c03", tmp_path, jobs=4, python="py")
+    assert "--mabbob-official" in tune and "--mabbob-official-heldout" not in tune
+    assert tune[tune.index("--official-chunk") + 1] == f"3/{n}"
+    i = tune.index("--strategies")
+    assert tune[i + 1 : i + 6] == list(rb.H2H_STRATEGIES) and tune[i + 6].startswith("--")
+    assert "--sync-eval" in tune and "--baselines" in tune and "--seeds" in tune
+    [(held, _)] = rb.shard_commands(
+        rb.SUITES["ioh-mabbob-official-heldout"], [42], "01c01", tmp_path, jobs=4, python="py"
+    )
+    assert "--mabbob-official-heldout" in held and "--mabbob-official" not in held
+    # A shard name without a chunk (a local run of the whole split) names none.
+    [(whole, _)] = rb.shard_commands(rb.SUITES["ioh-mabbob-official-tune"], [42], "01", tmp_path, jobs=4, python="py")
+    assert "--official-chunk" not in whole
+
+
+def test_ioh_cli_accepts_the_h2h_strategy_set():
+    pytest.importorskip("cma")
+    spec = importlib.util.spec_from_file_location(
+        "ioh_benchmark_cli_h2h", rb.REPO_ROOT / "scripts" / "ioh_benchmark.py"
+    )
+    assert spec is not None and spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    names = list(rb.H2H_STRATEGIES)
+    args = argparse.Namespace(legacy=False, standard=False, full=False, baselines=True, strategies=names)
+    assert sorted(s.name for s in cli._resolve_strategies(args)) == sorted(names)
+
+
+def test_mabbob_chunks_merge_per_seed_and_a_duplicate_run_raises(tmp_path):
+    suite = rb.SUITES["ioh-mabbob-official-tune"]
+    n = rb.MABBOB_INSTANCE_CHUNKS
+    for e in rb.plan([suite], [42, 7]):
+        _fake_shard(suite, rb.seed_list(e["seeds"]), e["shard"], tmp_path / "raw")
+    manifest = rb.aggregate(tmp_path / "raw", tmp_path / "ref", rb.plan([suite], [42, 7]))
+    assert manifest["failed_shards"] == [] and manifest["suites"][suite.name]["seeds"] == [42, 7]
+    assert manifest["suites"][suite.name]["files"][0] == "ref_ioh_mabbob-official_h2h.json"
+    merged = IOHMultiSeedResult.from_dict(
+        json.loads((tmp_path / "ref" / "ref_ioh_mabbob-official_h2h.json").read_text())
+    )
+    assert merged.base_seeds == [42, 7]
+    for res in merged.results:
+        assert [r.instance for r in res.runs] == list(range(1, n + 1))
+    # A missing chunk shows as a failed shard.
+    planned = rb.plan([suite], [42, 7]) + [{"suite": suite.name, "shard": "01c99", "seeds": "42", "extras": ""}]
+    assert rb.aggregate(tmp_path / "raw", tmp_path / "ref2", planned)["missing_shards"] == [f"{suite.name}/01c99"]
+    # The same run in two chunks is refused, not double counted.
+    d = tmp_path / "raw" / "dup" / suite.name
+    d.mkdir(parents=True)
+    _ioh_shard(
+        d / f"{suite.name}_shard01c88.json", [42], battery="ioh-mabbob-official", strategy=f"{suite.name}/A", instance=1
+    )
+    with pytest.raises(ValueError, match="more than one row chunk"):
+        rb.aggregate(tmp_path / "raw", tmp_path / "ref3")

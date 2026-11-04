@@ -60,6 +60,14 @@ Examples::
     uv run python scripts/ioh_benchmark.py run --families-large
     uv run python scripts/ioh_benchmark.py run --largescale
 
+    # The competition's own 1000 instances (rows of its CSV files, not
+    # ManyAffine(instance=N)), at its dims and budget; compare the result with
+    # scripts/mabbob_compare.py.  Tune is what you develop on; held-out runs once
+    # per frozen candidate (doc/dev/benchmarking.md, "Official MA-BBOB instances").
+    uv run python scripts/ioh_benchmark.py run --mabbob-official --output tune.json
+    uv run python scripts/ioh_benchmark.py run --mabbob-official --official-chunk 1/100 --output pilot.json
+    uv run python scripts/ioh_benchmark.py run --mabbob-official-heldout --output heldout.json
+
     # The SEALED test set: only to report a result or back a claim, never
     # for tuning or screening (doc/dev/benchmarking.md, "The sealed test set").
     uv run python scripts/ioh_benchmark.py run --sealed --decision-seeds --output claim.json
@@ -112,6 +120,7 @@ from panobbgo.harness_ioh import (
     IOHHarnessResult,
     IOHMultiSeedResult,
     ALL_BBOB_FIDS,
+    JSO_ONLY_NAME,
     CMAES_VARIANT_NAMES,
     TRUST_REGION_NAMES,
     make_bbob_battery,
@@ -119,8 +128,11 @@ from panobbgo.harness_ioh import (
     make_full_battery,
     make_highdim_battery,
     make_ioh_strategies,
+    make_jso_strategies,
     make_large_battery,
     make_largescale_battery,
+    make_mabbob_official_battery,
+    make_mabbob_official_heldout_battery,
     make_noisy_battery,
     make_noisy_highdim_battery,
     make_quick_battery,
@@ -156,6 +168,10 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         battery = make_largescale_battery()
     elif getattr(args, "sealed", False):
         battery = make_sealed_battery()
+    elif getattr(args, "mabbob_official", False):
+        battery = make_mabbob_official_battery(chunk=args.official_chunk)
+    elif getattr(args, "mabbob_official_heldout", False):
+        battery = make_mabbob_official_heldout_battery(chunk=args.official_chunk)
     elif getattr(args, "bbob", False):
         # The 24 plain BBOB functions (§52's function axis), as
         # ``portfolio_screen.py kind=bbob`` runs them; --budget-multiplier
@@ -233,6 +249,8 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
         strats.extend(make_cmaes_variant_strategies(args.strategies))
         # So do the §66 trust-region specs.
         strats.extend(make_trust_region_strategies(args.strategies))
+        # And the jSO-only spec.
+        strats.extend(make_jso_strategies(args.strategies))
     try:
         check_baseline_selection(args.strategies, args.baselines)
         if args.baselines:
@@ -289,6 +307,17 @@ def _positive_int(text: str) -> int:
     return v
 
 
+def _official_chunk(text: str) -> Tuple[int, int]:
+    """``"K/N"``: the K-th of N chunks of the official rows."""
+    try:
+        k, n = (int(v) for v in text.split("/"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected K/N, got {text!r}") from None
+    if not 1 <= k <= n:
+        raise argparse.ArgumentTypeError(f"expected 1 <= K <= N, got {text!r}")
+    return k, n
+
+
 def _non_negative_float(text: str) -> float:
     try:
         v = float(text)
@@ -307,7 +336,21 @@ _SEALED_FLAGS = ("sealed", "families_sealed")
 
 
 def _check_battery_options(args: argparse.Namespace) -> None:
-    """Refuse the option combinations the large and sealed batteries do not take."""
+    """Refuse the option combinations the large, sealed and official batteries do not take."""
+    official = getattr(args, "mabbob_official", False) or getattr(args, "mabbob_official_heldout", False)
+    if getattr(args, "official_chunk", None) is not None and not official:
+        raise SystemExit("error: --official-chunk needs --mabbob-official or --mabbob-official-heldout")
+    if getattr(args, "mabbob_official_heldout", False):
+        if getattr(args, "legacy", False):
+            raise SystemExit("error: --mabbob-official-heldout does not take --legacy")
+        for value, flag in (
+            (getattr(args, "log_features", None), "--log-features"),
+            (getattr(args, "reps", None), "--reps"),
+            (getattr(args, "budget_multiplier", None), "--budget-multiplier"),
+            (getattr(args, "virtual_workers", None), "--virtual-workers"),
+        ):
+            if value is not None:
+                raise SystemExit(f"error: --mabbob-official-heldout is fixed: no {flag} (panobbgo.mabbob_official)")
     chosen = [f for f in _LARGE_FLAGS if getattr(args, f, False)]
     if not chosen:
         return
@@ -775,6 +818,19 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "back a claim, never for tuning or screening (doc/dev/benchmarking.md).  No --reps / --legacy.",
     )
     grp.add_argument(
+        "--mabbob-official",
+        action="store_true",
+        help="The tune split of the competition's own instances (500 rows of its CSV files, not "
+        "ManyAffine(instance=N)), d 2 and 5, 2000*d: what to develop on.  Score with scripts/mabbob_compare.py.",
+    )
+    grp.add_argument(
+        "--mabbob-official-heldout",
+        action="store_true",
+        help="The held-out split of the competition's instances (the other 500 rows): once per frozen candidate, "
+        "never for tuning (doc/dev/benchmarking.md).  No --reps / --budget-multiplier / --log-features / "
+        "--virtual-workers.",
+    )
+    grp.add_argument(
         "--families-sealed",
         action="store_true",
         help="SEALED family test set (fresh instances of every family class, dims 2-40, 500*d): claims "
@@ -827,7 +883,15 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         + ", ".join(CMAES_VARIANT_NAMES)
         + ") and the trust-region specs of §66/§69.5 ("
         + ", ".join(TRUST_REGION_NAMES)
-        + ") join only when named here.",
+        + ") and "
+        + JSO_ONLY_NAME
+        + " join only when named here.",
+    )
+    run_p.add_argument(
+        "--official-chunk",
+        type=_official_chunk,
+        metavar="K/N",
+        help="With --mabbob-official(-heldout): only the K-th of N stride chunks of the rows (a shard, or a pilot).",
     )
     run_p.add_argument("--seed", type=int, default=42)
     seed_grp = run_p.add_mutually_exclusive_group()

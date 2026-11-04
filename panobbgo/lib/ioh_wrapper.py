@@ -227,11 +227,13 @@ class IOHProblem(Problem):
     Parameters
     ----------
     kind
-        Problem family.  Currently ``"MA-BBOB"`` (default IOH MA-BBOB
-        anytime competition) or ``"BBOB"`` (single BBOB function;
-        requires ``fid``).
+        Problem family.  ``"MA-BBOB"`` (``ManyAffine(instance=N)``), ``"BBOB"``
+        (single BBOB function; requires ``fid``) or ``"MA-BBOB-official"``
+        (a row of the competition's instance files,
+        :mod:`panobbgo.mabbob_official`).
     instance
-        Integer instance id passed to the underlying IOH builder.
+        Integer instance id passed to the underlying IOH builder; for
+        ``"MA-BBOB-official"`` the row index.
     dim
         Problem dimensionality.
     fid
@@ -312,6 +314,11 @@ class IOHProblem(Problem):
         }
         if fid is not None:
             create_kwargs["fid"] = int(fid)
+        from panobbgo.mabbob_official import OFFICIAL_KIND, row_payload  # here: it imports panobbgo.ioh_runner
+
+        if str(kind) == OFFICIAL_KIND:
+            # ``instance`` is a row of the competition's files; the worker gets the row itself.
+            create_kwargs.update(row_payload(int(instance), int(dim)))
 
         try:
             meta = self._call("create", **create_kwargs)

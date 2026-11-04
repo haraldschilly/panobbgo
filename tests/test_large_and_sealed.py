@@ -467,6 +467,8 @@ def test_ioh_development_instances_are_in_the_window():
     batteries = list(_ioh_presets().values()) + [
         harness_ioh.make_large_battery(),
         harness_ioh.make_largescale_battery(),
+        harness_ioh.make_mabbob_official_battery(),
+        harness_ioh.make_mabbob_official_heldout_battery(),
     ]
     dev = {int(i) for b in batteries for i in b.instances}
     assert dev and all(is_dev_instance_id(i) for i in dev)
@@ -485,6 +487,8 @@ def test_ioh_development_instances_are_in_the_window():
         "make_noisy_highdim_battery",
         "make_large_battery",
         "make_largescale_battery",
+        "make_mabbob_official_battery",
+        "make_mabbob_official_heldout_battery",
         "make_sealed_battery",
     }
 

@@ -109,6 +109,16 @@ from panobbgo.sealed import (
     print_sealed_banner,
 )
 from panobbgo.features import FeatureLogger, FeatureLogSpec
+from panobbgo.mabbob_official import (
+    COMPETITION_BUDGET_MULTIPLIER,
+    COMPETITION_DIMS,
+    OFFICIAL_KIND,
+    check_official_rows,
+    chunk_rows,
+    ensure_data,
+    print_heldout_banner,
+    split_rows,
+)
 from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 
@@ -127,7 +137,7 @@ from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 #: the ``kind`` field of the ``create`` JSON-Lines request, where the
 #: actual ``ioh`` builder lives.  Keep in sync with
 #: ``tools/ioh_worker/src/ioh_worker/__main__.py::_build_problem``.
-WORKER_PROBLEM_KINDS: Tuple[str, ...] = ("MA-BBOB", "BBOB")
+WORKER_PROBLEM_KINDS: Tuple[str, ...] = ("MA-BBOB", "BBOB", OFFICIAL_KIND)
 
 #: Noisy problem kinds — ``tag -> (worker kind, noise-model tag)``.
 #:
@@ -283,7 +293,8 @@ class IOHBatterySpec:
         Human-readable battery name shown in reports.
     problem_kind
         One of :data:`SUPPORTED_PROBLEM_KINDS`.  ``"MA-BBOB"`` is the
-        MA-BBOB anytime competition family.
+        MA-BBOB family by ``ioh`` instance id; ``"MA-BBOB-official"`` takes rows
+        of the competition's instance files (:mod:`panobbgo.mabbob_official`).
     dims
         Tuple of dimensions to evaluate.  The competition uses ``(2, 5)``.
     instances
@@ -336,6 +347,14 @@ class IOHBatterySpec:
         largescale slice) widens it here, so the bound travels with the
         battery into every result file (``IOHHarnessResult.log_hi``) and
         cannot be mixed up with a standard-bound number.
+    heldout
+        ``True`` only for the held-out split of the official MA-BBOB rows
+        (:func:`make_mabbob_official_heldout_battery`).  With
+        ``problem_kind="MA-BBOB-official"`` the ``instances`` are rows of the
+        competition's files, and without this flag a held-out row is refused
+        (:func:`panobbgo.mabbob_official.check_official_rows`).  A held-out
+        spec is fixed but for the chunk its rows form: competition dims and
+        budget, one rep.
     """
 
     name: str
@@ -351,6 +370,7 @@ class IOHBatterySpec:
     sealed: bool = False
     log_lo: Optional[float] = None
     log_hi: Optional[float] = None
+    heldout: bool = False
 
     def __post_init__(self) -> None:
         # ``fids`` is normalised the way callers already hand ``instances``
@@ -390,6 +410,21 @@ class IOHBatterySpec:
                     "(panobbgo.sealed: ids outside it alias the sealed set's); the sealed test set is "
                     "make_sealed_battery(), for claims only"
                 )
+        if self.problem_kind == OFFICIAL_KIND:
+            check_official_rows(self.instances, heldout=self.heldout)
+        elif self.heldout:
+            raise ValueError(f"heldout=True is for the official MA-BBOB rows, not {self.problem_kind!r}")
+        if self.heldout and (
+            tuple(self.dims) != COMPETITION_DIMS
+            or self.budget_multiplier != COMPETITION_BUDGET_MULTIPLIER
+            or self.reps != 1
+            or self.extra_builder_kwargs
+            or self.log_lo is not None
+            or self.log_hi is not None
+        ):
+            raise ValueError(
+                "a held-out battery is fixed: competition dims and budget, one rep (panobbgo.mabbob_official)"
+            )
 
     def aocc_bounds(self, log_lo: float = AOCC_LOG_LO, log_hi: float = AOCC_LOG_HI) -> Tuple[float, float]:
         """The AOCC bounds to score this battery with: its own where it has them.
@@ -462,10 +497,10 @@ def make_standard_battery() -> IOHBatterySpec:
 def make_full_battery() -> IOHBatterySpec:
     """Competition-budget battery: 2000*d evals, 10 instances per dim.
 
-    The actual MA-BBOB anytime competition uses many more instances; this
-    is the largest preset that still finishes on a developer machine in
-    minutes rather than hours.  Use a custom :class:`IOHBatterySpec` for
-    a serious pre-submission run.
+    The actual MA-BBOB anytime competition uses many more instances, and these
+    ``ManyAffine(instance=N)`` ids are not among them; this is the largest
+    preset that still finishes on a developer machine in minutes rather than
+    hours.  The competition's own rows are :func:`make_mabbob_official_battery`.
     """
     return IOHBatterySpec(
         name="ioh-full",
@@ -740,6 +775,44 @@ def make_sealed_battery() -> IOHBatterySpec:
     return IOHBatterySpec(**_SEALED_FIELDS)
 
 
+def make_mabbob_official_battery(chunk: Optional[Tuple[int, int]] = None) -> IOHBatterySpec:
+    """The tune split of the official MA-BBOB rows, at the competition's *d* and budget.
+
+    500 rows, *d* in {2, 5}, ``2000·d``, one run per row (``problem_kind``
+    ``"MA-BBOB-official"``, :mod:`panobbgo.mabbob_official`).  The rows are the
+    competition's published instances, unlike every ``"MA-BBOB"`` preset.
+    ``chunk=(k, n)`` takes the ``k``-th of ``n`` stride chunks of the rows (a
+    shard, or a pilot); the name stays, so shards merge.
+    """
+    rows = split_rows()[0]
+    return IOHBatterySpec(
+        name="mabbob-official-tune",
+        problem_kind=OFFICIAL_KIND,
+        dims=COMPETITION_DIMS,
+        instances=rows if chunk is None else chunk_rows(rows, *chunk),
+        budget_multiplier=COMPETITION_BUDGET_MULTIPLIER,
+    )
+
+
+def make_mabbob_official_heldout_battery(chunk: Optional[Tuple[int, int]] = None) -> IOHBatterySpec:
+    """The held-out split of the official MA-BBOB rows: **once per frozen candidate, never for tuning.**
+
+    As :func:`make_mabbob_official_battery` on the other 500 rows, and fixed:
+    :class:`IOHBatterySpec` refuses other dims, budgets or reps.
+    :func:`run_ioh_harness` prints a warning banner and refuses feature logging.
+    Rules: ``doc/dev/benchmarking.md``, "Official MA-BBOB instances".
+    """
+    rows = split_rows()[1]
+    return IOHBatterySpec(
+        name="mabbob-official-heldout",
+        problem_kind=OFFICIAL_KIND,
+        dims=COMPETITION_DIMS,
+        instances=rows if chunk is None else chunk_rows(rows, *chunk),
+        budget_multiplier=COMPETITION_BUDGET_MULTIPLIER,
+        heldout=True,
+    )
+
+
 # ---------------------------------------------------------------------------
 # IOH-tuned strategy registry
 # ---------------------------------------------------------------------------
@@ -999,6 +1072,28 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 #: ``RoundRobin_CMAES+aware`` −0.000 ± 0.004 (2/5), the portfolio's ``+fm``
 #: +0.002 ± 0.002, and the population arms waste only 3–7 % of their budget
 #: on failures (§71.1; §71.4 readings 1 and 4).
+#: jSO with the whole budget: the portfolio's second arm run alone, which no
+#: registry had.  Not in :func:`make_ioh_strategies`; joins a run when
+#: ``--strategies`` names it (:func:`make_jso_strategies`).
+JSO_ONLY_NAME: str = "RoundRobin_JSO"
+
+
+def make_jso_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """The jSO-only spec, if ``names`` names it (``None``: every spec of this kind).
+
+    It takes ``NP_init="auto"``, as ``Blocks_warm_CMAES_JSO``'s jSO arm does,
+    and no warm start: with one arm there is nothing to start from.
+    """
+    from panobbgo.heuristics import JSO
+    from panobbgo.strategies import StrategyRoundRobin
+
+    if names is not None and JSO_ONLY_NAME not in set(names):
+        return []
+    return [
+        StrategySpec(name=JSO_ONLY_NAME, strategy_class=StrategyRoundRobin, heuristics=[(JSO, {"NP_init": "auto"})])
+    ]
+
+
 TRUST_REGION_NAMES: Tuple[str, ...] = (
     "RoundRobin_TRQ",
     "Blocks_warm_CMAES_JSO_TRQ",
@@ -1916,6 +2011,12 @@ def refuse_sealed_features(log_features: Optional[FeatureLogSpec], name: str) ->
         raise ValueError(f"feature logging is refused on the sealed battery {name!r}: never train on the sealed set")
 
 
+def refuse_heldout_features(log_features: Optional[FeatureLogSpec], name: str) -> None:
+    """Raise if features are to be logged on the held-out split of the official rows: they would be training data."""
+    if log_features is not None:
+        raise ValueError(f"feature logging is refused on the held-out split ({name}): never train on it")
+
+
 def _is_sealed_problem(problem: Any) -> bool:
     """A sealed problem: marked ``sealed`` (families), or an IOH problem on a sealed MA-BBOB id (wrappers unwrapped)."""
     p = problem
@@ -2125,6 +2226,7 @@ def _run_one(
     virtual: Optional[VirtualSpec] = None,
     sealed: bool = False,
     log_features: Optional[FeatureLogSpec] = None,
+    heldout: bool = False,
 ) -> IOHRunRecord:
     """Run one strategy on one (problem, fid, instance) and return its record.
 
@@ -2135,6 +2237,10 @@ def _run_one(
     sealed cell.  The guard stops *accidental* use (a development id range
     that drifts into the sealed ids, ``scripts/ioh_smoke.py --instance``),
     and a run made this way is at least marked ``sealed`` in its record.
+
+    With ``problem_kind="MA-BBOB-official"``, ``instance`` is a row of the
+    competition's files, and a row of the held-out split needs ``heldout=True``
+    (the same kind of guard: :func:`panobbgo.mabbob_official.check_official_rows`).
     """
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
@@ -2151,6 +2257,12 @@ def _run_one(
             f"instance {instance} is outside the development window 0 <= id < {DEV_INSTANCE_LIMIT} "
             "(panobbgo.sealed); the sealed set runs only as make_sealed_battery()"
         )
+    if problem_kind == OFFICIAL_KIND:
+        check_official_rows([instance], heldout=heldout)
+        if heldout:
+            refuse_heldout_features(log_features, f"row {instance}")
+    elif heldout:
+        raise ValueError(f"heldout=True is for the official MA-BBOB rows, not {problem_kind}")
     worker_kind, noise_tag = resolve_problem_kind(problem_kind)
 
     t0 = time.time()
@@ -2338,6 +2450,11 @@ def run_ioh_harness(
     if battery.sealed:
         refuse_sealed_features(log_features, battery.name)
         print_sealed_banner(battery.name)
+    if battery.heldout:
+        refuse_heldout_features(log_features, battery.name)
+        print_heldout_banner(battery.name)
+    if battery.problem_kind == OFFICIAL_KIND:
+        ensure_data()  # a failed download stops here, not in every worker
     log_lo, log_hi = battery.aocc_bounds(log_lo, log_hi)
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
@@ -2391,6 +2508,7 @@ def run_ioh_harness(
             virtual=cell_virtual,
             sealed=battery.sealed,
             log_features=log_features,
+            heldout=battery.heldout,
         )
         if jobs > 1:
             tasks.append(task)

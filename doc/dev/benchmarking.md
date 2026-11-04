@@ -746,6 +746,11 @@ positive-only CMA-ES; still bit-identical for every spec without a CMA-ES
 arm) and `rebaseline-2026-09-26-run36228301268` (§54, two runner FP
 classes).
 
+The cheap-track references predate the numpy 2.5.4 lock, so their
+`fp_env_id` differs from that of new runs: `compare` warns and
+`--fail-on-regression` refuses to gate until the next re-baseline.  A seeded
+screen was bit-identical across the bump on the laptop only (§74).
+
 ## Re-baselining on GitHub runners
 
 `.github/workflows/rebaseline.yml` (manual) re-measures the references:

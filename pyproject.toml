@@ -32,6 +32,8 @@ dependencies = [
     "future>=1.0",
     "rich>=15.0",
     "cocopp>=2.9.1",
+    # cocopp imports six without declaring it; python-dateutil 4 no longer pulls it in.
+    "six>=1.17",
     "pytest-benchmark>=5.3.1",
 ]
 requires-python = ">=3.14"

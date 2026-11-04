@@ -168,10 +168,12 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         battery = make_largescale_battery()
     elif getattr(args, "sealed", False):
         battery = make_sealed_battery()
-    elif getattr(args, "mabbob_official", False):
-        battery = make_mabbob_official_battery(chunk=args.official_chunk)
-    elif getattr(args, "mabbob_official_heldout", False):
-        battery = make_mabbob_official_heldout_battery(chunk=args.official_chunk)
+    elif getattr(args, "mabbob_official", False) or getattr(args, "mabbob_official_heldout", False):
+        make = make_mabbob_official_battery if args.mabbob_official else make_mabbob_official_heldout_battery
+        try:
+            battery = make(chunk=args.official_chunk)
+        except ValueError as exc:
+            raise SystemExit(f"error: {exc}") from None
     elif getattr(args, "bbob", False):
         # The 24 plain BBOB functions (§52's function axis), as
         # ``portfolio_screen.py kind=bbob`` runs them; --budget-multiplier

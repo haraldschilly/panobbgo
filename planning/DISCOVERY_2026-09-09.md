@@ -6771,7 +6771,7 @@ d > 5; the IOH and constrained suites; the external baselines; torch 2.15
 those of runs on the new lock, so `compare` warns and `--fail-on-regression`
 refuses to gate until the next re-baseline.
 
-## 75. Official MA-BBOB instances: the scorer agrees with `iohinspector`, the harness instances were never the competition's, and `Blocks_warm_CMAES_JSO` is not level with CMA-ES at 2000·d; no head-to-head result yet (2026-11-04)
+## 75. Official MA-BBOB instances: the scorer agrees with `iohinspector`, the harness instances were never the competition's, and `Blocks_warm_CMAES_JSO` trails CMA-ES at 2000·d on small samples (CI spans zero on the official rows); no head-to-head result yet (2026-11-04)
 
 Tooling of #400 (`doc/dev/benchmarking.md`, "Official MA-BBOB instances").  Nothing here says whether Panobbgo is competitive.
 
@@ -6795,6 +6795,8 @@ ERADS d = 2 differs because the `iohinspector` loader filters `raw_y.diff()` ove
 | 10 official rows, d 2 and 5 | 3 | −0.065 | [−0.151, +0.019] |
 | `--full`, 10 old-style instances, d 2 and 5 | 2 | −0.045 | [−0.064, −0.030], 32 of 40 runs lost |
 
-§44 found the portfolio level with CMA-ES at 2000·dim on the standard battery (+0.002).  That does not hold on these samples.  Why (CMA-ES may have improved since §44) is not measured; a 12-seed run decides.
+§44 found the portfolio level with CMA-ES at 2000·dim on the standard battery (+0.002).  Neither sample here confirms that, and the official-row CI still spans zero.  Why (CMA-ES may have improved since §44) is not measured; a 12-seed run decides.
 
-**Not measured:** any spec over a whole split.  A 5-row, one-seed pilot was a timing run only and is not reported as a result.
+**Pilot, a timing run, not a result** (5 tune rows, seed 42, d 2 and 5; 12.7 CPU-s per row for all five specs): `RoundRobin_CMAES` 0.8293, `RoundRobin_JSO` 0.7253, `Baseline_pycma_BIPOP` 0.7225, `Blocks_warm_CMAES_JSO` 0.6616, `RoundRobin_Random` 0.3161; NeighborhoodAdaptiveDE 0.7648 on the same rows.
+
+**Not measured:** any spec over a whole split.

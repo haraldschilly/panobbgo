@@ -13,6 +13,7 @@ import os
 import sys
 import urllib.error
 import zipfile
+import zlib
 from pathlib import Path
 from typing import List
 
@@ -228,9 +229,15 @@ def test_harness_prints_the_banner_and_passes_the_flag(monkeypatch, capsys):
         ["--mabbob-official-heldout", "--virtual-workers", "4"],
         ["--mabbob-official-heldout", "--legacy"],
         ["--quick", "--official-chunk", "1/4"],
+        ["--mabbob-official-heldout", "--decision-seeds"],
+        ["--mabbob-official-heldout", "--seeds", "1", "2"],
+        ["--mabbob-official", "--official-chunk", "600/1000"],
     ],
 )
-def test_cli_refuses(argv):
+def test_cli_refuses(argv, monkeypatch):
+    # A broken guard must fail here, not start a real run (and never a real held-out one).
+    for name in ("run_ioh_harness", "run_ioh_harness_multi_seed"):
+        monkeypatch.setattr(cli, name, lambda *a, **k: pytest.fail("the run was not refused"))
     with pytest.raises(SystemExit) as exc:
         cli.main(["run", *argv])
     assert exc.value.code not in (0, None)
@@ -336,8 +343,9 @@ def test_ensure_data_fetches_once_and_verifies(monkeypatch, tmp_path):
         urllib.error.URLError("down"),
         b"<html>a proxy's error page</html>",
         b"no members",
+        zlib.error("corrupt deflate"),
     ],
-    ids=["cut", "url", "html", "members"],
+    ids=["cut", "url", "html", "members", "deflate"],
 )
 def test_a_failed_fetch_is_retried_then_names_the_offline_way_out(monkeypatch, tmp_path, failure):
     monkeypatch.setattr(mo.time, "sleep", lambda _s: None)
@@ -520,6 +528,16 @@ def test_reference_records_source_and_attribution():
         assert entry["source"] and entry["licence"] and entry["attribution"] and entry["algorithm"]
     assert "CC BY 4.0" == doc["entries"]["NeighborhoodAdaptiveDE"]["licence"]
     assert "10.5281/zenodo.15074959" in doc["entries"]["NeighborhoodAdaptiveDE"]["attribution"]
+    assert doc["entries"]["ERADS"]["note"] == cmp.ENTRY_SOURCES["ERADS"]["note"] == cmp.ERADS_NOTE
+    for name, sources in cmp.ENTRY_SOURCES.items():
+        assert {k: doc["entries"][name][k] for k in sources} == sources
+
+
+def test_a_merged_file_from_several_environments_warns():
+    report = {"seeds": [42], "fp_env_ids": ["mixed:a,b"], "problems": {}, "splits": {}, "breakdown_entry": "E"}
+    out = io.StringIO()
+    cmp.print_report(report, out)
+    assert "several floating-point environments" in out.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -820,6 +838,7 @@ def test_harness_end_to_end_on_official_rows():
     for rec in result.runs:
         assert rec.error is None and rec.n_evals == 4000 and rec.trace_evals[0] == 1
         assert rec.problem_kind == mo.OFFICIAL_KIND and 0.0 < rec.aocc < 1.0
+        assert rec.f_opt == 0.0  # the competition scores f(x), not f(x) - optimum
         assert abs(cmp.official_score_of_record(rec) - rec.aocc) <= 1.0 / 4000
     scores = _scores([(42, result)])
     assert scores.strategies == ["RoundRobin_Random"]
@@ -827,6 +846,18 @@ def test_harness_end_to_end_on_official_rows():
     assert report["splits"]["tune"]["coverage"]["RoundRobin_Random"][2] == 2
     classes = report["splits"]["tune"]["breakdown"]["RoundRobin_Random"]["by_dominant_class"]
     assert sum(c["n"] for c in classes.values()) == 2
+
+
+@requires_worker
+def test_a_heldout_battery_runs_end_to_end():
+    """The flag reaches the problem: without it every run would be refused and recorded as an error."""
+    _official_data()
+    spec = [s for s in hi.make_ioh_strategies() if s.name == "RoundRobin_Random"]
+    result = hi.run_ioh_harness(
+        spec, hi.make_mabbob_official_heldout_battery(chunk=(1, 250)), base_seed=42, progress=False
+    )
+    assert sorted({r.instance for r in result.runs}) == sorted(HELD[0::250])
+    assert all(r.error is None and r.n_evals == 2000 * r.dim and r.f_opt == 0.0 for r in result.runs)
 
 
 @requires_worker

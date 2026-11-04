@@ -6751,3 +6751,22 @@ start radius):
 * The 20·d d10 cells with the gate; the cheap track at d ≥ 10 with the
   new default (§61's numbers there no longer reproduce; the next
   re-baseline records them).
+
+## 74. Dependency bump of 2026-11-04 (numpy 2.5.3 → 2.5.4, pandas 3.1, scikit-learn 1.9.1, …): `fp_env_id` changes, the seeded numbers do not on the one machine checked (2026-11-04)
+
+The FP record differs only in the numpy version: same OpenBLAS version and
+kernels, same SIMD targets, same scipy (1.18.1).  `fp_env_id` moves from
+`d73705ee6b31` to `f9f5c546a5b4` on the laptop (glibc 2.43, Haswell kernels,
+`X86_V3`).
+
+Check: the screen of `fp-check.yml` (`family_screen.py`, seed 42,
+`preset=free dims=2,5`, FP pin on, `jobs=4`) on the old and the new lock, same
+code, compared with `scripts/fp_check.py`: 120 rows on each side, 0 differing,
+digest `8df0a7d79c77`; `scripts/fp_blas_digest.py` output identical.
+
+**Not measured:** GitHub runners, either FP class, including the AVX-512 one;
+d > 5; the IOH and constrained suites; the external baselines; torch 2.15
+(the `baselines-bo` extra).  So this does not show that the
+`rebaseline-2026-09-27` references still reproduce.  Their ids differ from
+those of runs on the new lock, so `compare` warns and `--fail-on-regression`
+refuses to gate until the next re-baseline.

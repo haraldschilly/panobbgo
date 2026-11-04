@@ -47,10 +47,20 @@ One JSON request per line on stdin, one JSON response per line on stdout.
 
 | Command | Request | Response |
 | --- | --- | --- |
-| `create` | `{"cmd": "create", "kind": "MA-BBOB"\|"BBOB", "instance": N, "dim": D, "fid": M}` (`fid` for BBOB only) | `{"ok": true, "lb": [...], "ub": [...], "optimum_y": F, "problem_id": I, "instance": N, "name": "..."}` |
+| `create` | `{"cmd": "create", "kind": "MA-BBOB"\|"BBOB", "instance": N, "dim": D, "fid": M}` (`fid` for BBOB only), or `{"cmd": "create", "kind": "MA-BBOB-official", "instance": ROW, "dim": D, "xopt": [...], "weights": [...], "iids": [...]}` | `{"ok": true, "lb": [...], "ub": [...], "optimum_y": F, "problem_id": I, "instance": N, "name": "..."}` |
 | `eval`   | `{"cmd": "eval", "x": [float, ...]}` | `{"ok": true, "fx": F}` |
 | `reset`  | `{"cmd": "reset"}` | `{"ok": true}` |
 | `shutdown` | `{"cmd": "shutdown"}` | `{"ok": true}` then worker exits 0 |
+
+### The official MA-BBOB instances
+
+`"MA-BBOB-official"` is one row of the competition's instance files:
+`instance` is the row index, not an `ioh` instance id, and `ManyAffine(instance=N)`
+does not reproduce any row.  The worker reads no file: the parent
+(`panobbgo/mabbob_official.py`) fetches and verifies the CSV files and sends the
+row, which the worker builds the way the competition's notebook does, with
+problem id 100 and instance = row.  Details: `doc/dev/benchmarking.md`,
+"Official MA-BBOB instances".
 
 ### Errors
 

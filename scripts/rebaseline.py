@@ -84,6 +84,13 @@ variants (without ``_active_guarded``, the default since §60), Optuna CmaEs, it
 reference suites); their files are
 ``ref_ioh_standard_cma_ab.json`` and ``ref_ioh_bbob_cma_ab_b<bm>.json``
 (analyse with ``harness_ioh.paired_seed_stats``).
+``ioh-mabbob-official-tune`` and ``ioh-mabbob-official-heldout`` run the
+head-to-head specs on the official MA-BBOB rows, sharded over chunks of rows
+(``Suite.instance_chunks``); their files are
+``ref_ioh_mabbob-official_h2h.json`` and
+``ref_ioh_mabbob-official-heldout_h2h.json`` (analyse with
+``scripts/mabbob_compare.py compare``).  Held-out is run once per frozen
+candidate (``doc/dev/benchmarking.md``, "Official MA-BBOB instances").
 
 Every measurement is synchronous (``sync_eval``) and seeded, with no
 wall-clock limit, so a result depends on the code and the seed only — not
@@ -97,6 +104,7 @@ refuses to merge shards of one suite from different ids unless
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import os
 import re
@@ -144,6 +152,10 @@ class Suite:
     #: An A/B suite, not a reference: ``--suites all`` leaves it out, it runs
     #: only when named.
     opt_in: bool = False
+    #: Non-zero: the rows of the official MA-BBOB battery are split over this
+    #: many jobs (``ioh_benchmark.py --official-chunk``), one matrix entry per
+    #: (seed chunk, row chunk), and ``aggregate`` merges the chunks of a seed.
+    instance_chunks: int = 0
 
     @property
     def ref_key(self) -> str:
@@ -174,6 +186,14 @@ class Suite:
 #: 10 (§52/§53 ran d 2/5; d = 2 is where pycma BIPOP leads, §57), instances
 #: 0 and 1 (§53's instance set).
 BBOB_AB_ARGS: Tuple[str, ...] = ("--bbob-dims", "2", "5", "10", "--bbob-instances", "0", "1")
+
+#: Row chunks of a head-to-head suite on the official MA-BBOB rows.  Local timing
+#: (2026-11-04, laptop, niced, --jobs 4, seed 42, 5 tune rows): all five
+#: H2H_STRATEGIES on one row at d 2 and 5 take 12.7 CPU-s (per run 0.5-1.3 s at
+#: d = 2, 0.9-2.7 s at d = 5), so a split of 500 rows is 1.8 CPU-h per seed.  On
+#: 4 cores in 4 chunks that is ~7 min per job, ~20 min on a runner 3x slower: far
+#: below the 350-minute limit, and a lost runner costs a quarter of a split.
+MABBOB_INSTANCE_CHUNKS: int = 4
 
 SUITES: Dict[str, Suite] = {
     s.name: s
@@ -222,6 +242,29 @@ SUITES: Dict[str, Suite] = {
             extras=("baselines",),
             args=BBOB_AB_ARGS + ("--budget-multiplier", "500"),
             opt_in=True,
+        ),
+        # The head-to-head on the competition's own instances
+        # (panobbgo.mabbob_official), compared by scripts/mabbob_compare.py.
+        # Held-out is named separately and runs once per frozen candidate.
+        Suite(
+            "ioh-mabbob-official-tune",
+            "ioh",
+            "mabbob-official",
+            1,
+            variant="h2h",
+            extras=("baselines",),
+            opt_in=True,
+            instance_chunks=MABBOB_INSTANCE_CHUNKS,
+        ),
+        Suite(
+            "ioh-mabbob-official-heldout",
+            "ioh",
+            "mabbob-official-heldout",
+            1,
+            variant="h2h",
+            extras=("baselines",),
+            opt_in=True,
+            instance_chunks=MABBOB_INSTANCE_CHUNKS,
         ),
     )
 }
@@ -281,6 +324,17 @@ def _cma_ab_strategy_names(suite: Suite) -> List[str]:
     return ["RoundRobin_CMAES", *variants, *CMA_AB_REFERENCES]
 
 
+#: The specs of the head-to-head on the official rows: the floor, the flagship,
+#: the portfolio, its jSO arm alone, and an external CMA-ES re-implementation.
+H2H_STRATEGIES: Tuple[str, ...] = (
+    "RoundRobin_Random",
+    "RoundRobin_CMAES",
+    "Blocks_warm_CMAES_JSO",
+    "RoundRobin_JSO",
+    "Baseline_pycma_BIPOP",
+)
+
+
 #: IOH suite variant -> the ``--strategies`` names its shards run.  Resolved
 #: in the shard, which has the package installed (``plan`` stays stdlib only).
 #: The external baselines join a run only when ``--strategies`` names them.
@@ -289,6 +343,7 @@ STRATEGY_SETS: Dict[str, Callable[[Suite], List[str]]] = {
     "cma_ab": _cma_ab_strategy_names,
     "cma_ab_b200": _cma_ab_strategy_names,
     "cma_ab_b500": _cma_ab_strategy_names,
+    "h2h": lambda _suite: list(H2H_STRATEGIES),
 }
 
 
@@ -337,16 +392,27 @@ def plan(suites: Sequence[Suite], seeds: Sequence[int]) -> List[Dict[str, str]]:
         k = suite.seeds_per_job
         for i in range(0, len(seeds), k):
             chunk = seeds[i : i + k]
-            entries.append(
-                {
-                    "suite": suite.name,
-                    "shard": f"{i // k + 1:02d}",
-                    "seeds": ",".join(str(s) for s in chunk),
-                    # '+'-joined; the workflow turns it into --extra flags.
-                    "extras": "+".join(suite.extras),
-                }
-            )
+            base = f"{i // k + 1:02d}"
+            shards = [f"{base}c{c:02d}" for c in range(1, suite.instance_chunks + 1)] or [base]
+            for shard in shards:
+                entries.append(
+                    {
+                        "suite": suite.name,
+                        "shard": shard,
+                        "seeds": ",".join(str(s) for s in chunk),
+                        # '+'-joined; the workflow turns it into --extra flags.
+                        "extras": "+".join(suite.extras),
+                    }
+                )
     return entries
+
+
+def _row_chunk_args(suite: Suite, shard: str) -> List[str]:
+    """``--official-chunk K/N`` for a shard ``<seed chunk>c<K>`` of an :attr:`Suite.instance_chunks` suite."""
+    match = re.fullmatch(r"\d+c(\d+)", shard)
+    if not suite.instance_chunks or match is None:
+        return []
+    return ["--official-chunk", f"{int(match.group(1))}/{suite.instance_chunks}"]
 
 
 def check_dispatch(suites: Sequence[Suite], release: Optional[str]) -> None:
@@ -424,6 +490,7 @@ def shard_commands(
             "--seeds",
             *[str(s) for s in seeds],
             *suite.args,
+            *_row_chunk_args(suite, shard),
             "--sync-eval",
             "--jobs",
             str(jobs),
@@ -576,6 +643,22 @@ def _aggregate_composite(
     }
 
 
+def _merge_row_chunks(suite: str, pairs: Sequence[Tuple[int, Any]]) -> List[Tuple[int, Any]]:
+    """One ``(seed, result)`` per seed from the row chunks of that seed; a run in two chunks raises."""
+    by_seed: Dict[int, List[Any]] = {}
+    for seed, res in pairs:
+        by_seed.setdefault(seed, []).append(res)
+    merged = []
+    for seed, results in by_seed.items():
+        runs = [r for res in results for r in res.runs]
+        keys = [(r.strategy_name, r.dim, r.instance, r.rep) for r in runs]
+        if len(set(keys)) != len(keys):
+            raise ValueError(f"{suite}: seed {seed} has a run in more than one row chunk")
+        runs.sort(key=lambda r: (r.dim, r.instance, r.strategy_name, r.rep))
+        merged.append((seed, dataclasses.replace(results[0], runs=runs)))
+    return merged
+
+
 def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path, allow_mixed_fp: bool = False) -> Dict[str, Any]:
     from panobbgo.harness_ioh import IOHMultiSeedResult
 
@@ -592,6 +675,8 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path, allow_mixed_f
         raise ValueError(f"{suite.name}: shards measured with different BLAS thread counts {sorted(map(str, threads))}")
     fp_ids = _fp_ids(suite, [p.fp_env_id for p in parts], allow_mixed_fp)
     pairs = [(s, r) for p in parts for s, r in zip(p.base_seeds, p.results)]
+    if suite.instance_chunks:
+        pairs = _merge_row_chunks(suite.name, pairs)
     _check_unique(suite.name, [s for s, _ in pairs])
     pairs.sort(key=lambda sr: _seed_order(sr[0]))
     first = parts[0]

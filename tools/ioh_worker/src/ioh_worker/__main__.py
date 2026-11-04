@@ -5,6 +5,7 @@ One request per line on stdin, one response per line on stdout.
 Requests
 --------
 * ``{"cmd": "create", "kind": "MA-BBOB"|"BBOB", "instance": N, "dim": D, "fid": M (BBOB only)}``
+* ``{"cmd": "create", "kind": "MA-BBOB-official", "instance": ROW, "dim": D, "xopt": [...], "weights": [...], "iids": [...]}``
 * ``{"cmd": "eval", "x": [float, ...]}``
 * ``{"cmd": "reset"}``
 * ``{"cmd": "shutdown"}``
@@ -26,11 +27,45 @@ import sys
 import ioh
 import numpy as np
 
+#: The problem id the competition's notebook sets on its instances.
+OFFICIAL_PROBLEM_ID = 100
 
-def _build_problem(kind: str, instance: int, dim: int, fid: int | None = None):
+
+def _build_official(row: int, dim: int, xopt: list, weights: list, iids: list):
+    """One row of the MA-BBOB competition's instance files, built the way its notebook builds it.
+
+    The parent reads and verifies the files (``panobbgo/mabbob_official.py``)
+    and sends the row; ``instance`` is the row index, not an ``ioh`` instance id.
+    """
+    if len(xopt) != dim:
+        raise ValueError(f"xopt has {len(xopt)} coordinates, expected {dim}")
+    problem = ioh.problem.ManyAffine(
+        xopt=np.asarray(xopt, dtype=np.float64),
+        weights=np.asarray(weights, dtype=np.float64),
+        instances=np.asarray(iids, dtype=int),
+        n_variables=dim,
+    )
+    problem.set_id(OFFICIAL_PROBLEM_ID)
+    problem.set_instance(row)
+    return problem
+
+
+def _build_problem(
+    kind: str,
+    instance: int,
+    dim: int,
+    fid: int | None = None,
+    xopt: list | None = None,
+    weights: list | None = None,
+    iids: list | None = None,
+):
     """Instantiate an ``ioh.problem.RealSingleObjective`` by kind."""
     if kind == "MA-BBOB":
         return ioh.problem.ManyAffine(instance=instance, n_variables=dim)
+    if kind == "MA-BBOB-official":
+        if xopt is None or weights is None or iids is None:
+            raise ValueError("MA-BBOB-official kind requires 'xopt', 'weights' and 'iids'")
+        return _build_official(instance, dim, xopt, weights, iids)
     if kind == "BBOB":
         if fid is None:
             raise ValueError("BBOB kind requires a 'fid' (1..24)")
@@ -76,6 +111,9 @@ def main() -> int:
                     instance=int(req["instance"]),
                     dim=int(req["dim"]),
                     fid=req.get("fid"),
+                    xopt=req.get("xopt"),
+                    weights=req.get("weights"),
+                    iids=req.get("iids"),
                 )
                 _write(_meta_response(problem))
             elif cmd == "eval":

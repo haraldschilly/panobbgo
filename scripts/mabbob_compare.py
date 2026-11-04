@@ -71,6 +71,12 @@ _BASELINES = (
     "IOHprofiler/IOHdata, which states no licence); only derived per-instance scores are stored here."
 )
 
+#: Why ERADS at d = 2 differs from what iohinspector prints.
+ERADS_NOTE = (
+    "iohinspector's loader drops row 452 at d=2 (a whole-file raw_y.diff filter), so the organisers' tool gives "
+    "0.836957 over 999 rows; this file keeps the row, scored 1.0, giving 0.837120."
+)
+
 #: Where each entry's logged data comes from.
 ENTRY_SOURCES: Dict[str, Dict[str, str]] = {
     "NeighborhoodAdaptiveDE": {
@@ -79,9 +85,16 @@ ENTRY_SOURCES: Dict[str, Dict[str, str]] = {
         "licence": "CC BY 4.0",
         "attribution": "'NeighborhoodAdaptiveDE for Many-Affine Black-box optimization', Anonymous (Zenodo, 2025), "
         "doi:10.5281/zenodo.15074959; designed with the LLaMEA framework (van Stein & Baeck, IEEE TEVC 2024). "
-        "Winner of the 2025 competition. The per-instance scores here are computed from its logged data.",
+        "Winner of the 2025 competition per van Stein et al., arXiv:2601.21511 (\u00a75.4: tuned on MA-BBOB 5d), and "
+        "GECCO 2025 lists van Stein first; the Zenodo record is dated before the deadline, so it may not be the exact "
+        "submitted version. The per-instance scores here are computed from its logged data.",
     },
-    "ERADS": {"source": DATA_URL, "licence": "none stated", "attribution": _BASELINES},
+    "ERADS": {
+        "source": DATA_URL,
+        "licence": "none stated",
+        "attribution": _BASELINES,
+        "note": ERADS_NOTE,
+    },
     "PSS": {
         "source": DATA_URL,
         "licence": "none stated",
@@ -430,12 +443,17 @@ def print_report(report: Dict[str, Any], out: Any = None) -> None:
     say(
         "Metric: the competition's AOCC (d 2 and 5, 2000*d, bounds 1e-8..1e2).  A CI is a percentile bootstrap over rows."
     )
-    say("The entries may have been tuned on these public rows, which makes the comparison conservative for us.")
+    say("Public rows: not a competition result, which is judged on new instances.")
+    say(f"ERADS: {ERADS_NOTE}")
     for strategy, counts in report["problems"].items():
         if any(counts.values()):
             say(f"WARNING: {strategy}: {counts}")
     for split, section in report["splits"].items():
         say(f"\n=== split: {split} ({section['rows']} rows) ===")
+        if split == "heldout":
+            say("Conservative for us: the entries may have been tuned on these rows, and we did not develop on them.")
+        else:
+            say("Not conservative: the entries may have been tuned on these rows, and so were we.")
         for strategy, by_dim in section["coverage"].items():
             short = [d for d, n in by_dim.items() if n != section["rows"]]
             if short:

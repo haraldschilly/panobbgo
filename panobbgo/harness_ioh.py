@@ -1031,6 +1031,28 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
     ]
 
 
+#: jSO with the whole budget: the portfolio's second arm run alone, which no
+#: registry had.  Not in :func:`make_ioh_strategies`; joins a run when
+#: ``--strategies`` names it (:func:`make_jso_strategies`).
+JSO_ONLY_NAME: str = "RoundRobin_JSO"
+
+
+def make_jso_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """The jSO-only spec, if ``names`` names it (``None``: every spec of this kind).
+
+    It takes ``NP_init="auto"``, as ``Blocks_warm_CMAES_JSO``'s jSO arm does,
+    and no warm start: with one arm there is nothing to start from.
+    """
+    from panobbgo.heuristics import JSO
+    from panobbgo.strategies import StrategyRoundRobin
+
+    if names is not None and JSO_ONLY_NAME not in set(names):
+        return []
+    return [
+        StrategySpec(name=JSO_ONLY_NAME, strategy_class=StrategyRoundRobin, heuristics=[(JSO, {"NP_init": "auto"})])
+    ]
+
+
 #: Opt-in specs with the quadratic trust-region arm
 #: (:class:`~panobbgo.heuristics.trust_region.TrustRegionQuadratic`, DISCOVERY
 #: §66): the arm alone, the headline portfolio with it as a third arm, and
@@ -1072,28 +1094,6 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 #: ``RoundRobin_CMAES+aware`` −0.000 ± 0.004 (2/5), the portfolio's ``+fm``
 #: +0.002 ± 0.002, and the population arms waste only 3–7 % of their budget
 #: on failures (§71.1; §71.4 readings 1 and 4).
-#: jSO with the whole budget: the portfolio's second arm run alone, which no
-#: registry had.  Not in :func:`make_ioh_strategies`; joins a run when
-#: ``--strategies`` names it (:func:`make_jso_strategies`).
-JSO_ONLY_NAME: str = "RoundRobin_JSO"
-
-
-def make_jso_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
-    """The jSO-only spec, if ``names`` names it (``None``: every spec of this kind).
-
-    It takes ``NP_init="auto"``, as ``Blocks_warm_CMAES_JSO``'s jSO arm does,
-    and no warm start: with one arm there is nothing to start from.
-    """
-    from panobbgo.heuristics import JSO
-    from panobbgo.strategies import StrategyRoundRobin
-
-    if names is not None and JSO_ONLY_NAME not in set(names):
-        return []
-    return [
-        StrategySpec(name=JSO_ONLY_NAME, strategy_class=StrategyRoundRobin, heuristics=[(JSO, {"NP_init": "auto"})])
-    ]
-
-
 TRUST_REGION_NAMES: Tuple[str, ...] = (
     "RoundRobin_TRQ",
     "Blocks_warm_CMAES_JSO_TRQ",
@@ -2278,13 +2278,17 @@ def _run_one(
         # worker builds exactly what it built before the axis existed.
         if fid is not None:
             builder_kwargs = {**builder_kwargs, "fid": int(fid)}
+        if heldout:
+            builder_kwargs = {**builder_kwargs, "heldout": True}
         problem = IOHProblem(
             kind=worker_kind,
             instance=instance,
             dim=dim,
             **builder_kwargs,
         )
-        f_opt = float(problem.optimum_y)
+        # The competition scores the logged value f(x), not f(x) - optimum; the
+        # optimum of these rows is below 1.1e-10, under the 1e-8 target.
+        f_opt = 0.0 if worker_kind == OFFICIAL_KIND else float(problem.optimum_y)
         if timeout_s is not None:
             # A hung worker must not outlive the run's deadline by more than
             # a grace period: past it, the round-trip is abandoned and the

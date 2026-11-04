@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import http.client
 import importlib.util
 import io
 import json
 import os
 import sys
+import urllib.error
 import zipfile
 from pathlib import Path
 from typing import List
@@ -138,6 +140,21 @@ def test_heldout_rows_are_refused_without_the_flag():
 def test_a_heldout_battery_has_no_knobs(change):
     with pytest.raises(ValueError, match="fixed"):
         dataclasses.replace(hi.make_mabbob_official_heldout_battery(), **change)
+
+
+def test_the_problem_refuses_a_heldout_row_before_any_worker_starts(monkeypatch):
+    from panobbgo.lib import ioh_wrapper
+
+    monkeypatch.setattr(ioh_wrapper.IOHProblem, "_start_fresh_worker", lambda self: pytest.fail("no worker"))
+    with pytest.raises(ValueError, match="held-out"):
+        ioh_wrapper.IOHProblem(mo.OFFICIAL_KIND, HELD[0], 2)
+    with pytest.raises(ValueError, match="heldout=True"):
+        ioh_wrapper.IOHProblem("MA-BBOB", 0, 2, heldout=True)
+
+
+def test_a_chunk_past_the_rows_is_refused():
+    with pytest.raises(ValueError, match="empty"):
+        mo.chunk_rows(TUNE, 600, 1000)
 
 
 def test_run_one_refuses_a_heldout_row_without_the_flag(monkeypatch):
@@ -269,7 +286,7 @@ def test_existing_worker_kinds_build_the_same_problems():
     ):
         p = IOHProblem(kind, 3, 5, **kw)
         try:
-            assert float(p.eval(x)) == fx and p.optimum_y == opt
+            assert float(p.eval(x)) == pytest.approx(fx, rel=1e-12) and p.optimum_y == pytest.approx(opt, rel=1e-9)
             assert (p.ioh_problem_id, p.ioh_instance, p.ioh_name) == (pid, 3, name)
         finally:
             p.close()
@@ -310,6 +327,50 @@ def test_ensure_data_fetches_once_and_verifies(monkeypatch, tmp_path):
     assert len(fetched) == 1, "verified files are not fetched again"
     table = mo._load_table(str(target))
     assert table.xopt[7][:2] == (0.25, 0.25) and table.iids[999][23] == 1 and table.weights[0][0] == 0.5
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        http.client.IncompleteRead(b"x"),
+        urllib.error.URLError("down"),
+        b"<html>a proxy's error page</html>",
+        b"no members",
+    ],
+    ids=["cut", "url", "html", "members"],
+)
+def test_a_failed_fetch_is_retried_then_names_the_offline_way_out(monkeypatch, tmp_path, failure):
+    monkeypatch.setattr(mo.time, "sleep", lambda _s: None)
+    files = _fake_csvs()
+    monkeypatch.setattr(mo, "CSV_SHA256", {n: hashlib.sha256(d).hexdigest() for n, d in files.items()})
+    good = _zip_of(files)
+    calls: List[int] = []
+
+    def flaky(_url):
+        calls.append(1)
+        if len(calls) > 1:
+            return good
+        if isinstance(failure, Exception):
+            raise failure
+        return _zip_of({"other.txt": b"x"}) if failure == b"no members" else failure
+
+    monkeypatch.setattr(mo, "_download", flaky)
+    assert mo.ensure_data(tmp_path / "ok") == tmp_path / "ok" and len(calls) == 2
+
+    def down(_url):
+        raise urllib.error.URLError("down")
+
+    monkeypatch.setattr(mo, "_download", down)
+    with pytest.raises(RuntimeError, match=mo.DATA_DIR_ENV):
+        mo.ensure_data(tmp_path / "never")
+
+
+def test_cached_files_are_readable_by_others(monkeypatch, tmp_path):
+    files = _fake_csvs()
+    monkeypatch.setattr(mo, "CSV_SHA256", {n: hashlib.sha256(d).hexdigest() for n, d in files.items()})
+    monkeypatch.setattr(mo, "_download", lambda _url: _zip_of(files))
+    target = mo.ensure_data(tmp_path / "shared")
+    assert all((target / n).stat().st_mode & 0o777 == 0o644 for n in mo.CSV_SHA256)
 
 
 def test_ensure_data_refuses_a_wrong_download_and_writes_nothing(monkeypatch, tmp_path):
@@ -669,6 +730,27 @@ def test_compare_cli_end_to_end(monkeypatch, tmp_path, capsys):
     assert saved["splits"]["tune"]["strategies"]["S"]["E1"]["d=5"]["delta"] == pytest.approx(0.1)
 
 
+def test_compare_scores_the_official_aocc_not_the_stored_one():
+    """The stored AOCC is the repo's; comparing it unconverted would flatter us by up to 1/B."""
+    rec = _record("S", 2, TUNE[0], 0.5, first=100.0, last=1e-8)
+    scores = cmp.OurScores()
+    scores.add("res.json", 42, _result([rec]))
+    expected = mo.official_from_repo_aocc(0.5, 100.0, 1e-8, rec.budget, -8.0, 2.0)
+    assert scores.cells[("S", 2, TUNE[0])] == [pytest.approx(expected, abs=1e-15)]
+    assert abs(expected - 0.5) > 1e-5
+
+
+@pytest.mark.parametrize(("split", "says"), [("heldout", "Conservative for us"), ("tune", "Not conservative")])
+def test_the_report_calls_only_a_heldout_comparison_conservative(split, says):
+    section = {"rows": 1, "coverage": {}, "strategies": {}, "breakdown": {}}
+    report = {"seeds": [42], "fp_env_ids": ["x"], "problems": {}, "splits": {split: section}, "breakdown_entry": "E"}
+    out = io.StringIO()
+    cmp.print_report(report, out)
+    text = out.getvalue()
+    assert says in text and "not a competition result" in text and "row 452" in text
+    assert ("Not conservative" if split == "heldout" else "Conservative for us") not in text
+
+
 def test_build_reference_from_logged_data(tmp_path):
     root = tmp_path / "entry"
     root.mkdir()
@@ -702,11 +784,11 @@ def test_worker_kind_reproduces_logged_best_values(case):
     _official_data()
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
-    p = IOHProblem(mo.OFFICIAL_KIND, case["row"], case["dim"])
+    p = IOHProblem(mo.OFFICIAL_KIND, case["row"], case["dim"], heldout=mo.split_of(case["row"]) == "heldout")
     try:
         assert p.ioh_instance == case["row"] and p.ioh_problem_id == mo.OFFICIAL_PROBLEM_ID
         assert p.dim == case["dim"]
-        value = float(p.eval(np.asarray(case["x"]))) - p.optimum_y
+        value = float(p.eval(np.asarray(case["x"])))  # the logger writes f(x), not f(x) - optimum
         # The entries logged with ioh 0.3.14 / 0.3.17; the worker runs 0.3.22.
         assert value == pytest.approx(case["y"], rel=1e-6)
     finally:

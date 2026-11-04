@@ -47,8 +47,10 @@ burns the split the way a sealed number burns the sealed set
 (``doc/dev/benchmarking.md``, "Official MA-BBOB instances").
 
 The published entries may have been tuned on these same 1000 public rows, so
-their score on either split may be optimistic against unseen instances, which
-makes the comparison conservative for us.
+their score may be optimistic against unseen instances.  That makes a
+**held-out** comparison conservative for us.  A **tune** comparison is not: we
+develop on those rows too, so it can flatter us as well.  Neither is a
+competition result, which is judged on new instances.
 
 Scoring
 -------
@@ -67,6 +69,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import http.client
 import io
 import json
 import math
@@ -188,6 +191,8 @@ def chunk_rows(rows: Sequence[int], index: int, count: int) -> Tuple[int, ...]:
     """The rows of chunk ``index`` of ``count`` (1-based), by stride: every chunk is a fair sample of ``rows``."""
     if not 1 <= int(index) <= int(count):
         raise ValueError(f"chunk must be 1..{count}, got {index}")
+    if int(index) > len(rows):
+        raise ValueError(f"chunk {index} of {count} is empty: there are only {len(rows)} rows")
     return tuple(rows[int(index) - 1 :: int(count)])
 
 
@@ -229,6 +234,7 @@ def _write_atomic(path: Path, data: bytes) -> None:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
+        os.chmod(tmp, 0o644)  # mkstemp's 0600 would hide a shared data directory from everyone else
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -238,21 +244,41 @@ def _write_atomic(path: Path, data: bytes) -> None:
         raise
 
 
-def _download(url: str, attempts: int = 4) -> bytes:
-    """The archive's bytes, with retries (a shard must not die on one failed request)."""
+def _download(url: str) -> bytes:
+    """The archive's bytes, one attempt."""
+    with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310 (a pinned https URL)
+        data = resp.read(_MAX_ARCHIVE_BYTES + 1)
+    if len(data) > _MAX_ARCHIVE_BYTES:
+        raise ValueError(f"{url}: larger than {_MAX_ARCHIVE_BYTES} bytes")
+    return data
+
+
+def _fetch_members(url: str, names: Sequence[str], attempts: int = 4) -> Dict[str, bytes]:
+    """The named files of the archive, with retries (a shard must not die on one failed request).
+
+    A cut connection, an error page instead of the zip and a zip without the
+    files all count as a failed request.  Only the final failure raises, as
+    :class:`RuntimeError`.
+    """
     last: Optional[Exception] = None
     for attempt in range(attempts):
         if attempt:
             time.sleep(2.0**attempt)
         try:
-            with urllib.request.urlopen(url, timeout=60) as resp:  # noqa: S310 (a pinned https URL)
-                data = resp.read(_MAX_ARCHIVE_BYTES + 1)
-            if len(data) > _MAX_ARCHIVE_BYTES:
-                raise ValueError(f"{url}: larger than {_MAX_ARCHIVE_BYTES} bytes")
-            return data
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            with zipfile.ZipFile(io.BytesIO(_download(url))) as archive:
+                return {n: archive.read(n) for n in names}
+        except (
+            urllib.error.URLError,
+            http.client.HTTPException,
+            TimeoutError,
+            OSError,
+            zipfile.BadZipFile,
+            KeyError,
+        ) as exc:
             last = exc
-    raise RuntimeError(f"could not download {url}: {last}") from last
+    raise RuntimeError(
+        f"could not download {url}: {last}; offline, point {DATA_DIR_ENV} at a directory with the three CSV files"
+    ) from last
 
 
 def ensure_data(directory: Optional[Path] = None, url: str = DATA_URL) -> Path:
@@ -273,8 +299,7 @@ def ensure_data(directory: Optional[Path] = None, url: str = DATA_URL) -> Path:
         if wrong:
             raise ValueError(f"{target}: {wrong} do not match the pinned SHA-256 (panobbgo.mabbob_official.CSV_SHA256)")
     target.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(_download(url))) as archive:
-        contents = {n: archive.read(n) for n in missing}
+    contents = _fetch_members(url, missing)
     for name, data in contents.items():
         digest = hashlib.sha256(data).hexdigest()
         if digest != CSV_SHA256[name]:

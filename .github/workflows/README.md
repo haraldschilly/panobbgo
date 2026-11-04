@@ -67,7 +67,7 @@ serialised and never cancelled mid-push.
 
 `workflow_dispatch` only (inputs: `suites`, `seeds`, `ref`, `release`).  A
 `plan` job turns the inputs into a matrix via `scripts/rebaseline.py plan`;
-each `measure` job runs one (suite, seed chunk) shard — synchronous, seeded,
+each `measure` job runs one (suite, seed chunk) shard, or (suite, seed chunk, row chunk) for the official MA-BBOB suites — synchronous, seeded,
 no wall-clock limit — and uploads `shard-<suite>-<shard>`; `aggregate`
 builds the reference files, publishes them as a pre-release
 `rebaseline-<date>` (the only job with `contents: write`) and uploads

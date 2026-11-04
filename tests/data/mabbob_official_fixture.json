@@ -1,5 +1,11 @@
 {
  "description": "Short logged runs of the MA-BBOB entries with the AOCC iohinspector 0.0.8 gives them (transform_fval(df, 1e-8, 1e2), get_aocc), and logged best points to replay on the official rows. Literal values: no network and no iohinspector needed. ERADS row 452 has no iohinspector value because it loses that run (see doc/dev/benchmarking.md).",
+ "sources": {
+  "NeighborhoodAdaptiveDE": "https://zenodo.org/records/15074959 (CC BY 4.0)",
+  "ERADS": "https://github.com/IOHprofiler/IOHdata/raw/a3ecaac6c06aa97190249c0c2c74b6a3aac14304/MABBOB_GettingStarted.zip (MABBOB_Baselines.zip; no licence stated)",
+  "PSS": "https://github.com/IOHprofiler/IOHdata/raw/a3ecaac6c06aa97190249c0c2c74b6a3aac14304/MABBOB_GettingStarted.zip (MABBOB_Baselines.zip; no licence stated)",
+  "ACA": "https://github.com/IOHprofiler/IOHdata/raw/a3ecaac6c06aa97190249c0c2c74b6a3aac14304/MABBOB_GettingStarted.zip (MABBOB_Baselines.zip; no licence stated)"
+ },
  "runs": [
   {
    "entry": "NeighborhoodAdaptiveDE",

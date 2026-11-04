@@ -6770,3 +6770,31 @@ d > 5; the IOH and constrained suites; the external baselines; torch 2.15
 `rebaseline-2026-09-27` references still reproduce.  Their ids differ from
 those of runs on the new lock, so `compare` warns and `--fail-on-regression`
 refuses to gate until the next re-baseline.
+
+## 75. Official MA-BBOB instances: the scorer agrees with `iohinspector`, the harness instances were never the competition's, and `Blocks_warm_CMAES_JSO` is not level with CMA-ES at 2000·d; no head-to-head result yet (2026-11-04)
+
+Tooling of #400 (`doc/dev/benchmarking.md`, "Official MA-BBOB instances").  Nothing here says whether Panobbgo is competitive.
+
+**Scorer.**  Mean official AOCC on the 1000 public rows, `iohinspector` 0.0.8 against ours:
+
+| Entry | d = 2 official | d = 2 ours | d = 5 official | d = 5 ours |
+|---|---|---|---|---|
+| NeighborhoodAdaptiveDE (2025 winner, arXiv:2601.21511) | 0.866839 | 0.866839 | 0.807771 | 0.807771 |
+| ERADS | 0.836957 | 0.837120 | 0.751084 | 0.751084 |
+| PSS | 0.601940 | 0.601940 | 0.511605 | 0.511605 |
+| ACA | 0.482176 | 0.482176 | 0.327829 | 0.327829 |
+
+ERADS d = 2 differs because the `iohinspector` loader filters `raw_y.diff()` over the whole file and loses row 452; without that row the two agree.  The repo's `aocc` is higher than the official one by `(q(1) − q(B))/B`, at most `1/B`: 1.0–2.1e-4 at d = 2, 0.3–0.8e-4 at d = 5.  `mabbob_compare.py` converts.
+
+**Instances.**  `ManyAffine(instance=N)`, which `--full` and every earlier MA-BBOB number use, matched no official row for N up to 1100 on the three rows checked.  So every earlier MA-BBOB AOCC here, 2000·d included, is on another instance set and cannot be compared with an entry.
+
+**`Blocks_warm_CMAES_JSO` − `RoundRobin_CMAES` at 2000·d** (review of #400; small samples, descriptive):
+
+| Instances | Seeds | Delta | 95% CI |
+|---|---|---|---|
+| 10 official rows, d 2 and 5 | 3 | −0.065 | [−0.151, +0.019] |
+| `--full`, 10 old-style instances, d 2 and 5 | 2 | −0.045 | [−0.064, −0.030], 32 of 40 runs lost |
+
+§44 found the portfolio level with CMA-ES at 2000·dim on the standard battery (+0.002).  That does not hold on these samples.  Why (CMA-ES may have improved since §44) is not measured; a 12-seed run decides.
+
+**Not measured:** any spec over a whole split.  A 5-row, one-seed pilot was a timing run only and is not reported as a result.

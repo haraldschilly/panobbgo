@@ -386,7 +386,7 @@ def resolve_suites(spec: str) -> List[Suite]:
 
 
 def plan(suites: Sequence[Suite], seeds: Sequence[int]) -> List[Dict[str, str]]:
-    """One matrix entry per (suite, seed chunk), with the extras its job installs."""
+    """One matrix entry per (suite, seed chunk[, row chunk]), with the extras its job installs."""
     entries = []
     for suite in suites:
         k = suite.seeds_per_job
@@ -415,6 +415,17 @@ def _row_chunk_args(suite: Suite, shard: str) -> List[str]:
     return ["--official-chunk", f"{int(match.group(1))}/{suite.instance_chunks}"]
 
 
+#: Suites of the official MA-BBOB held-out split, which runs once per frozen candidate.
+HELDOUT_SUITES: Tuple[str, ...] = ("ioh-mabbob-official-heldout",)
+
+
+def check_heldout_seeds(suites: Sequence[Suite], seeds: Sequence[int]) -> None:
+    """Refuse a held-out dispatch with anything but one seed (an omitted ``seeds`` input means 12)."""
+    held = [s.name for s in suites if s.name in HELDOUT_SUITES]
+    if held and len(seeds) != 1:
+        raise ValueError(f"{held} run once per frozen candidate: name one seed, got {len(seeds)}")
+
+
 def check_dispatch(suites: Sequence[Suite], release: Optional[str]) -> None:
     """Refuse a dispatch that could publish an A/B as a reference.
 
@@ -426,6 +437,10 @@ def check_dispatch(suites: Sequence[Suite], release: Optional[str]) -> None:
     """
     opt_in = [s.name for s in suites if s.opt_in]
     regular = [s.name for s in suites if not s.opt_in]
+    held = [s.name for s in suites if s.name in HELDOUT_SUITES]
+    if held and len(suites) != len(held):
+        others = [s.name for s in suites if s.name not in HELDOUT_SUITES]
+        raise ValueError(f"run {held} alone, not together with {others}: held-out is a decision of its own")
     if opt_in and regular:
         raise ValueError(f"do not mix opt-in A/B suites {opt_in} with reference suites {regular} in one dispatch")
     if opt_in and release is not None and release != "none":
@@ -439,7 +454,13 @@ def cmd_plan(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"::error::{exc}", file=sys.stderr)
         return 2
-    entries = plan(suites, resolve_seeds(args.seeds))
+    seeds = resolve_seeds(args.seeds)
+    try:
+        check_heldout_seeds(suites, seeds)
+    except ValueError as exc:
+        print(f"::error::{exc}", file=sys.stderr)
+        return 2
+    entries = plan(suites, seeds)
     print(json.dumps({"include": entries}, separators=(",", ":")))
     return 0
 
@@ -655,7 +676,8 @@ def _merge_row_chunks(suite: str, pairs: Sequence[Tuple[int, Any]]) -> List[Tupl
         if len(set(keys)) != len(keys):
             raise ValueError(f"{suite}: seed {seed} has a run in more than one row chunk")
         runs.sort(key=lambda r: (r.dim, r.instance, r.strategy_name, r.rep))
-        merged.append((seed, dataclasses.replace(results[0], runs=runs)))
+        ids = sorted({res.fp_env_id for res in results}, key=str)
+        merged.append((seed, dataclasses.replace(results[0], runs=runs, fp_env_id=_merged_fp_id(ids))))
     return merged
 
 

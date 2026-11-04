@@ -242,6 +242,9 @@ class IOHProblem(Problem):
     worker_dir
         Override the path to the worker uv project.  Defaults to the
         result of :func:`_resolve_worker_dir`.
+    heldout
+        Needed to build a row of the held-out split of ``"MA-BBOB-official"``
+        (:func:`panobbgo.mabbob_official.check_official_rows`).
     reuse_worker
         ``True`` (default): take an idle worker of the same
         ``(worker_dir, kind)`` if there is one, and hand this one back on
@@ -286,7 +289,15 @@ class IOHProblem(Problem):
         worker_dir: Optional[Path] = None,
         call_timeout: Optional[float] = DEFAULT_CALL_TIMEOUT_S,
         reuse_worker: bool = True,
+        heldout: bool = False,
     ) -> None:
+        from panobbgo.mabbob_official import OFFICIAL_KIND, check_official_rows, row_payload  # imports ioh_runner
+
+        # Before any worker exists: a refused row must leave nothing to clean up.
+        if str(kind) == OFFICIAL_KIND:
+            check_official_rows([int(instance)], heldout=heldout)
+        elif heldout:
+            raise ValueError(f"heldout=True is for the official MA-BBOB rows, not {kind!r}")
         self._proc: Optional[subprocess.Popen] = None
         self._sel: Optional[selectors.BaseSelector] = None
         self._lock = threading.Lock()
@@ -314,8 +325,6 @@ class IOHProblem(Problem):
         }
         if fid is not None:
             create_kwargs["fid"] = int(fid)
-        from panobbgo.mabbob_official import OFFICIAL_KIND, row_payload  # here: it imports panobbgo.ioh_runner
-
         if str(kind) == OFFICIAL_KIND:
             # ``instance`` is a row of the competition's files; the worker gets the row itself.
             create_kwargs.update(row_payload(int(instance), int(dim)))

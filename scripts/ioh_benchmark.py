@@ -343,6 +343,8 @@ def _check_battery_options(args: argparse.Namespace) -> None:
     if getattr(args, "mabbob_official_heldout", False):
         if getattr(args, "legacy", False):
             raise SystemExit("error: --mabbob-official-heldout does not take --legacy")
+        if getattr(args, "decision_seeds", False) or len(getattr(args, "seeds", None) or []) > 1:
+            raise SystemExit("error: --mabbob-official-heldout takes one seed: it runs once per frozen candidate")
         for value, flag in (
             (getattr(args, "log_features", None), "--log-features"),
             (getattr(args, "reps", None), "--reps"),

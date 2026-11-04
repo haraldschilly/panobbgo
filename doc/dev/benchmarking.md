@@ -692,14 +692,16 @@ uv run python scripts/mabbob_compare.py compare tune.json --json-out cmp.json
     (`--mabbob-official`) is what we develop on.  Held-out
     (`--mabbob-official-heldout`) runs **once per frozen candidate**, to report
     it; a number from it that steers a decision burns the split, as with the
-    sealed set.  `IOHBatterySpec` and `_run_one` refuse a held-out row without
-    `heldout=True`; a held-out battery has no knobs (no `--reps`,
+    sealed set.  `IOHBatterySpec`, `_run_one` and `IOHProblem` refuse a held-out row without
+    `heldout=True`; a held-out dispatch takes exactly one seed and runs alone; a held-out battery has no knobs (no `--reps`,
     `--budget-multiplier`, `--log-features`, `--virtual-workers`, `--legacy`), and
     prints a banner.  This is a separate discipline from the sealed test set,
     which stays as it is.
-*   **Conservative for us.**  The entries may have been tuned on these same
-    1000 public rows, so their score on either split may be optimistic against
-    the unseen instances the competition judges on.
+*   **What the two splits can say.**  The entries may have been tuned on these
+    same 1000 public rows, so their score may be optimistic against unseen
+    instances.  That makes a held-out comparison conservative for us.  A tune
+    comparison is not: we develop on those rows too.  Neither is a competition
+    result, which is judged on new instances.
 *   **Unit of inference.**  The comparison is over rows.  An entry has one run
     per row, so one seed for us is the like-for-like setting; with several
     seeds the tool averages per row first.
@@ -717,8 +719,11 @@ over `[0, B]`, with the first value also over `[0, 1)`.
 evaluations.  They differ by exactly `(q(1) − q(B))/B` for the normalised score
 `q`, at most `1/B`; on the entries' data the repo's is higher by 1.0–2.1e-4 at
 d = 2 and 0.3–0.8e-4 at d = 5.  `official_from_repo_aocc` converts a stored AOCC
-exactly, so `mabbob_compare.py` compares like with like.  All scores use
-`f(x) − f.optimum.y` (the logged `raw_y`; the optimum is about `7e-13`, not 0).
+exactly, so `mabbob_compare.py` compares like with like.  All scores use `f(x)`,
+which is what the IOH logger writes as `raw_y`: not `f(x) − f.optimum.y`, and
+rounded to 10 decimals.  The optimum (4.5e-13 to 1.1e-10) is below the lower
+target.  We do not round; on four replayed runs that made our score up to 1.8e-5
+higher than `iohinspector`'s, far below any difference this comparison can resolve.
 Logged runs are cut at the budget and held at their last value to the end
 (NeighborhoodAdaptiveDE logs up to 4050 / 10050, PSS stops at 369 at d = 2).
 
@@ -756,8 +761,10 @@ fixture `tests/data/mabbob_official_fixture.json` and the reference file pin it)
 
 **The reference file** `benchmarks/references/mabbob_official_entries.json`
 holds per-row official AOCC, source and attribution for
-NeighborhoodAdaptiveDE (2025 winner; CC BY 4.0, Zenodo 15074959) and the three
-baselines of the getting-started archive.  Regenerate it with
+NeighborhoodAdaptiveDE (CC BY 4.0, Zenodo 15074959; named the 2025 winner, tuned
+on 5d, by arXiv:2601.21511) and the three baselines of the getting-started
+archive; the 2024 winner's data is one of those, probably ERADS, which no
+source names outright.  Regenerate it with
 `mabbob_compare.py build-reference` under `python -I`; it parses the downloads as
 data and runs nothing from them.
 

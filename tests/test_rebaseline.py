@@ -12,7 +12,9 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
+from unittest.mock import patch
 
 import pytest
 
@@ -904,6 +906,30 @@ def test_mabbob_suites_are_opt_in_and_need_release_none():
         with pytest.raises(ValueError, match="release=none"):
             rb.check_dispatch([rb.SUITES[name]], "auto")
         rb.check_dispatch([rb.SUITES[name]], "none")
+
+
+def test_heldout_runs_alone_and_with_one_seed():
+    held, tune = rb.SUITES["ioh-mabbob-official-heldout"], rb.SUITES["ioh-mabbob-official-tune"]
+    with pytest.raises(ValueError, match="alone"):
+        rb.check_dispatch([held, tune], "none")
+    with pytest.raises(ValueError, match="one seed"):
+        rb.check_heldout_seeds([held], rb.resolve_seeds("12"))
+    rb.check_heldout_seeds([held], [42])
+    rb.check_heldout_seeds([tune], [42, 7])
+
+
+def test_plan_command_refuses_a_heldout_dispatch_without_a_seed(capsys):
+    args = argparse.Namespace(suites="ioh-mabbob-official-heldout", release="none", seeds="12")
+    assert rb.cmd_plan(args) == 2
+    assert "one seed" in capsys.readouterr().err
+
+
+def test_merged_row_chunks_carry_every_fp_id():
+    a = SimpleNamespace(fp_env_id="a", runs=[])
+    b = SimpleNamespace(fp_env_id="b", runs=[])
+    with patch.object(rb.dataclasses, "replace", lambda res, **kw: kw):
+        [(_seed, merged)] = rb._merge_row_chunks("s", [(42, a), (42, b)])
+    assert merged["fp_env_id"] == "mixed:a,b"
 
 
 def test_mabbob_plan_has_one_entry_per_seed_and_row_chunk():

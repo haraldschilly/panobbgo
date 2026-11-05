@@ -91,6 +91,9 @@ head-to-head specs on the official MA-BBOB rows, sharded over chunks of rows
 ``ref_ioh_mabbob-official-heldout_h2h.json`` (analyse with
 ``scripts/mabbob_compare.py compare``).  Held-out is run once per frozen
 candidate (``doc/dev/benchmarking.md``, "Official MA-BBOB instances").
+``ioh-mabbob-official-calibrate`` runs a published entry's own code on the tune
+rows, ``ref_ioh_mabbob-official_calibrate.json``: it should score what the entry
+logged, or the harness does not score like the competition.
 
 Every measurement is synchronous (``sync_eval``) and seeded, with no
 wall-clock limit, so a result depends on the code and the seed only — not
@@ -256,6 +259,17 @@ SUITES: Dict[str, Suite] = {
             opt_in=True,
             instance_chunks=MABBOB_INSTANCE_CHUNKS,
         ),
+        # A published entry's code through the harness, against its logged scores.
+        Suite(
+            "ioh-mabbob-official-calibrate",
+            "ioh",
+            "mabbob-official",
+            1,
+            variant="calibrate",
+            extras=("baselines",),
+            opt_in=True,
+            instance_chunks=MABBOB_INSTANCE_CHUNKS,
+        ),
         Suite(
             "ioh-mabbob-official-heldout",
             "ioh",
@@ -344,6 +358,7 @@ STRATEGY_SETS: Dict[str, Callable[[Suite], List[str]]] = {
     "cma_ab_b200": _cma_ab_strategy_names,
     "cma_ab_b500": _cma_ab_strategy_names,
     "h2h": lambda _suite: list(H2H_STRATEGIES),
+    "calibrate": lambda _suite: ["Baseline_NeighborhoodAdaptiveDE"],
 }
 
 

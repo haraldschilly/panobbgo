@@ -781,12 +781,19 @@ the harness on the tune rows, as `Baseline_NeighborhoodAdaptiveDE`, and
 `mabbob_compare.py compare` on `ref_ioh_mabbob-official_calibrate.json` prints the
 delta against the entry.
 
-The rule, fixed before the first run: they **agree** if the 95 % CI of the delta in
-the `mean` row lies inside ±0.01, which is below the smallest gap this has to explain
-(`Baseline_pycma_BIPOP` +0.0123 in tune run 41873503735).  A miss must be explained,
-with the harness the first suspect, but it is not proof by itself: the log may come
-from another version of the code (see the reference file).  The seeds of the log are
-unknown, so a single row's delta is noise between two seeds; only the mean counts.
+The rule, fixed before the first run, on the 95 % CI of the delta in the `mean` row:
+
+*   **Agree**: the CI lies inside ±0.01.  That is below the smallest gap this has to
+    explain whose CI excludes 0 (`Baseline_pycma_BIPOP` +0.0123 in tune run 41873503735).
+*   **Miss**: the CI excludes 0 and the delta is at least 0.01 in size.  It must be
+    explained, with the harness the first suspect, but it is not proof by itself: the
+    log may come from another version of the code (see the reference file).
+*   **Inconclusive**: anything else, a CI too wide to tell.  More of our seeds do not
+    help, since the log is a single run; the next step is a same-seed run of the entry
+    under `ioh` directly and through the harness, which has no seed noise.
+
+The seeds of the log are unknown, so a single row's delta is noise between two seeds;
+only the mean counts.
 
 What agreement covers: instance construction, the tracker, the score and the baseline
 objective, on a DE that never leaves the box.  It does **not** cover the paths of

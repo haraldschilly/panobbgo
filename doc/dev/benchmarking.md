@@ -777,9 +777,22 @@ four jobs per split).
 the competition, and agreeing with `iohinspector` on logged data does not show that
 for runs made here.  `ioh-mabbob-official-calibrate` runs NeighborhoodAdaptiveDE's
 published code (`panobbgo/third_party/`, CC BY 4.0, changed only by `np.inf`) through
-the harness on the tune rows, as `Baseline_NeighborhoodAdaptiveDE`.  It should score
-what the entry logged; `mabbob_compare.py compare` on
-`ref_ioh_mabbob-official_calibrate.json` prints the delta against the entry.
+the harness on the tune rows, as `Baseline_NeighborhoodAdaptiveDE`, and
+`mabbob_compare.py compare` on `ref_ioh_mabbob-official_calibrate.json` prints the
+delta against the entry.
+
+The rule, fixed before the first run: they **agree** if the 95 % CI of the delta in
+the `mean` row lies inside ±0.01, which is below the smallest gap this has to explain
+(`Baseline_pycma_BIPOP` +0.0123, §75's follow-up run).  A miss must be explained,
+with the harness the first suspect, but it is not proof by itself: the log may come
+from another version of the code (see the reference file).  The seeds of the log are
+unknown, so a single row's delta is noise between two seeds; only the mean counts.
+
+What agreement covers: instance construction, the tracker, the score and the baseline
+objective, on a DE that never leaves the box.  It does **not** cover the paths of
+`RoundRobin_CMAES` (`StrategyBase`, sync batches, soft-budget replies) or
+`Baseline_pycma_BIPOP` (the ask/tell driver).  An evaluation one of those made outside
+the tracker would be free and calibration would still agree; that needs its own check.
 
 ```bash
 gh workflow run rebaseline.yml -f suites=ioh-mabbob-official-calibrate -f seeds=42, -f release=none

@@ -50,6 +50,9 @@ BoTorch qLogEI, TuRBO-1, SMAC3's BlackBox facade, Py-BOBYQA: see
 (:data:`BO_BASELINE_NAMES`, and with the cheap track in
 :data:`ALL_EXTERNAL_BASELINE_NAMES`).
 
+Calibration, opt-in by name: :class:`NeighborhoodAdaptiveDEStrategy`, a published
+MA-BBOB entry's own code (numpy only).
+
 Every cheap-track external baseline starts from a uniform random point of
 the box (per seed), treats a NaN value as the worst (``+inf``), and is
 deterministic for a fixed seed; see the section comment above
@@ -119,6 +122,7 @@ import functools
 import importlib
 import importlib.util
 import math
+from types import SimpleNamespace
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -415,12 +419,13 @@ class BaselineStrategy:
 
 
 class NeighborhoodAdaptiveDEStrategy(BaselineStrategy):
-    """The published code of an MA-BBOB competition entry, unchanged, under the harness.
+    """The published code of an MA-BBOB competition entry (only ``np.inf`` changed) under the harness.
 
     A calibration, not a reference to beat: its logged scores are known
     (``benchmarks/references/mabbob_official_entries.json``), so a run through
-    the harness that does not reproduce them means the harness scores differently
-    from the competition.  See :mod:`panobbgo.third_party.neighborhood_adaptive_de`.
+    the harness that misses them, beyond the rule in ``doc/dev/benchmarking.md``,
+    must be explained, with the harness the first suspect.  See
+    :mod:`panobbgo.third_party.neighborhood_adaptive_de`.
 
     The entry evaluates ``func(x)`` and reads ``func.meta_data.n_variables`` and
     ``func.bounds``, which is all of an ``ioh`` problem it uses.
@@ -429,8 +434,6 @@ class NeighborhoodAdaptiveDEStrategy(BaselineStrategy):
     who: str = "NeighborhoodAdaptiveDE"
 
     def _optimize(self, log: _EvaluationLog) -> None:
-        from types import SimpleNamespace
-
         from panobbgo.third_party.neighborhood_adaptive_de import NeighborhoodAdaptiveDE
 
         objective = _make_objective(self.problem, log)
@@ -1344,7 +1347,8 @@ ALL_EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = EXTERNAL_BASELINE_NAMES + BO_BASE
 
 #: Opt-in A/B baselines: selected by name like the external ones, but in no
 #: reference suite (``scripts/rebaseline.py``'s ``ioh-external`` stays as it
-#: is).  :class:`OptunaCmaEsClipStrategy` is §57's reverse bound-handling test.
+#: is).  :class:`OptunaCmaEsClipStrategy` is §57's reverse bound-handling test;
+#: :class:`NeighborhoodAdaptiveDEStrategy` is the official MA-BBOB calibration.
 _AB_BASELINE_CLASSES: Tuple[type, ...] = (OptunaCmaEsClipStrategy, NeighborhoodAdaptiveDEStrategy)
 
 #: Spec names of :data:`_AB_BASELINE_CLASSES`.

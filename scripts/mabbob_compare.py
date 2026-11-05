@@ -453,7 +453,7 @@ def print_report(report: Dict[str, Any], out: Any = None) -> None:
         if split == "heldout":
             say("Conservative for us: the entries may have been tuned on these rows, and we did not develop on them.")
         else:
-            say("Not conservative: the entries may have been tuned on these rows, and so were we.")
+            say("Not conservative: the entries may have been tuned on these rows, and our specs may have been too.")
         for strategy, by_dim in section["coverage"].items():
             short = [d for d, n in by_dim.items() if n != section["rows"]]
             if short:

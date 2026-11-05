@@ -966,6 +966,8 @@ def _event_aware_classes() -> Dict[type, None]:
     """Every :class:`Module` / strategy / constraint-handler class in the package."""
     found: Dict[type, None] = {}
     for info in pkgutil.walk_packages([str(PACKAGE_ROOT)], "panobbgo."):
+        if info.name.startswith("panobbgo.third_party."):  # other authors' code, no panobbgo classes
+            continue
         try:
             module = importlib.import_module(info.name)
         except Exception:  # optional backends (dask, ioh, ...) may be absent

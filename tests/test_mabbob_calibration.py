@@ -81,9 +81,9 @@ def test_adapter_hands_the_entry_the_problem_seed_and_budget(monkeypatch):
     monkeypatch.setitem(sys.modules, MODULE, types.SimpleNamespace(NeighborhoodAdaptiveDE=Entry))
     problem = Rosenbrock(dims=2)
     strategy = NeighborhoodAdaptiveDEStrategy(problem, seed=2**32 + 7)
-    strategy.config.max_eval = 4000
+    strategy.config.max_eval = 3000
     strategy.start()
-    assert seen["factor"] == 2000 and seen["seed"] == 7 and seen["dim"] == 2
+    assert seen["factor"] == 1500 and seen["seed"] == 7 and seen["dim"] == 2
     assert np.array_equal(seen["lb"], problem.box[:, 0]) and np.array_equal(seen["ub"], problem.box[:, 1])
     assert seen["f"] == pytest.approx(0.0)
     assert strategy.best.fx == pytest.approx(0.0)

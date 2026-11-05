@@ -783,7 +783,7 @@ delta against the entry.
 
 The rule, fixed before the first run: they **agree** if the 95 % CI of the delta in
 the `mean` row lies inside ±0.01, which is below the smallest gap this has to explain
-(`Baseline_pycma_BIPOP` +0.0123, §75's follow-up run).  A miss must be explained,
+(`Baseline_pycma_BIPOP` +0.0123 in tune run 41873503735).  A miss must be explained,
 with the harness the first suspect, but it is not proof by itself: the log may come
 from another version of the code (see the reference file).  The seeds of the log are
 unknown, so a single row's delta is noise between two seeds; only the mean counts.

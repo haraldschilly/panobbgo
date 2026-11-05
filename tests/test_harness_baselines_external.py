@@ -393,12 +393,14 @@ def test_harness_runs_an_external_baseline_end_to_end():
 
 @_needs("optuna", "cmaes")  # make_baseline_strategies imports the extra
 def test_clip_baseline_is_opt_in_and_paired_with_optuna_cmaes():
-    assert AB_BASELINE_NAMES == ("Baseline_Optuna_CmaEs_clip",)
+    assert AB_BASELINE_NAMES == ("Baseline_Optuna_CmaEs_clip", "Baseline_NeighborhoodAdaptiveDE")
     assert not set(AB_BASELINE_NAMES) & set(ALL_EXTERNAL_BASELINE_NAMES)  # not in the reference suites
-    [spec] = make_ab_baseline_strategies()
+    spec = make_ab_baseline_strategies()[0]
     assert spec.strategy_class is OptunaCmaEsClipStrategy
     assert spec.rng_identity == "Baseline_Optuna_CmaEs"  # same x0 and sampler seed as the resampling one
-    assert [s.name for s in make_baseline_strategies(["Baseline_Optuna_CmaEs_clip"])][3:] == list(AB_BASELINE_NAMES)
+    assert [s.name for s in make_baseline_strategies(["Baseline_Optuna_CmaEs_clip"])][3:] == [
+        "Baseline_Optuna_CmaEs_clip"
+    ]
     with pytest.raises(ValueError, match="--baselines"):
         BenchmarkHarness(HarnessConfig(mode="quick", strategies=["Baseline_Optuna_CmaEs_clip"])).get_strategies()
 

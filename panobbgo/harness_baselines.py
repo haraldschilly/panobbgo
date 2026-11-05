@@ -414,6 +414,50 @@ class BaselineStrategy:
 # ---------------------------------------------------------------------------
 
 
+class NeighborhoodAdaptiveDEStrategy(BaselineStrategy):
+    """The published code of an MA-BBOB competition entry, unchanged, under the harness.
+
+    A calibration, not a reference to beat: its logged scores are known
+    (``benchmarks/references/mabbob_official_entries.json``), so a run through
+    the harness that does not reproduce them means the harness scores differently
+    from the competition.  See :mod:`panobbgo.third_party.neighborhood_adaptive_de`.
+
+    The entry evaluates ``func(x)`` and reads ``func.meta_data.n_variables`` and
+    ``func.bounds``, which is all of an ``ioh`` problem it uses.
+    """
+
+    who: str = "NeighborhoodAdaptiveDE"
+
+    def _optimize(self, log: _EvaluationLog) -> None:
+        from types import SimpleNamespace
+
+        from panobbgo.third_party.neighborhood_adaptive_de import NeighborhoodAdaptiveDE
+
+        objective = _make_objective(self.problem, log)
+        func = _EntryProblem(
+            objective,
+            SimpleNamespace(n_variables=self.problem.dim),
+            SimpleNamespace(lb=self.problem.box[:, 0].copy(), ub=self.problem.box[:, 1].copy()),
+        )
+        # The budget factor makes the entry's own budget the harness budget, so
+        # at 2000 * d it is the competition's.  It can overrun by a population;
+        # the objective ends the run at the budget, past which nothing is scored.
+        entry = NeighborhoodAdaptiveDE(budget_factor=log.max_eval / self.problem.dim)
+        entry(func, seed=_seed32(self._run_seed()))
+
+
+@dataclass
+class _EntryProblem:
+    """The part of an ``ioh`` problem :class:`NeighborhoodAdaptiveDEStrategy`'s entry uses."""
+
+    objective: Callable[[np.ndarray], float]
+    meta_data: Any
+    bounds: Any
+
+    def __call__(self, x: np.ndarray) -> float:
+        return self.objective(x)
+
+
 class RandomSearchStrategy(BaselineStrategy):
     """Pure uniform random search over the problem box.
 
@@ -1301,7 +1345,7 @@ ALL_EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = EXTERNAL_BASELINE_NAMES + BO_BASE
 #: Opt-in A/B baselines: selected by name like the external ones, but in no
 #: reference suite (``scripts/rebaseline.py``'s ``ioh-external`` stays as it
 #: is).  :class:`OptunaCmaEsClipStrategy` is §57's reverse bound-handling test.
-_AB_BASELINE_CLASSES: Tuple[type, ...] = (OptunaCmaEsClipStrategy,)
+_AB_BASELINE_CLASSES: Tuple[type, ...] = (OptunaCmaEsClipStrategy, NeighborhoodAdaptiveDEStrategy)
 
 #: Spec names of :data:`_AB_BASELINE_CLASSES`.
 AB_BASELINE_NAMES: Tuple[str, ...] = tuple(f"Baseline_{cls.who}" for cls in _AB_BASELINE_CLASSES)
@@ -1411,6 +1455,7 @@ __all__ = [
     "BaselineStrategy",
     "NevergradCMAStrategy",
     "NevergradNGOptStrategy",
+    "NeighborhoodAdaptiveDEStrategy",
     "NevergradStrategy",
     "NevergradTwoPointsDEStrategy",
     "OptunaCmaEsClipStrategy",

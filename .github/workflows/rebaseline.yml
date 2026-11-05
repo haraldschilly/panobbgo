@@ -22,7 +22,8 @@ on:
           opt-in A/B suites, never in 'all', only with release=none and
           never mixed with the others:
           ioh-cma-ab, ioh-cma-ab-bbob-b200, ioh-cma-ab-bbob-b500,
-          ioh-mabbob-official-tune, ioh-mabbob-official-heldout (seeds: '42,')
+          ioh-mabbob-official-tune, ioh-mabbob-official-calibrate,
+          ioh-mabbob-official-heldout (seeds: '42,')
         type: string
         default: all
       seeds:

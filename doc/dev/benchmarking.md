@@ -773,6 +773,18 @@ data and runs nothing from them.
 `ioh-mabbob-official-heldout` of `rebaseline.yml` (next section; one seed per job,
 four jobs per split).
 
+**Calibration**: a score only compares with an entry's if the harness scores like
+the competition, and agreeing with `iohinspector` on logged data does not show that
+for runs made here.  `ioh-mabbob-official-calibrate` runs NeighborhoodAdaptiveDE's
+published code (`panobbgo/third_party/`, CC BY 4.0, changed only by `np.inf`) through
+the harness on the tune rows, as `Baseline_NeighborhoodAdaptiveDE`.  It should score
+what the entry logged; `mabbob_compare.py compare` on
+`ref_ioh_mabbob-official_calibrate.json` prints the delta against the entry.
+
+```bash
+gh workflow run rebaseline.yml -f suites=ioh-mabbob-official-calibrate -f seeds=42, -f release=none
+```
+
 ## Comparability
 
 Result files from before **2026-09-25** are not comparable with newer ones:

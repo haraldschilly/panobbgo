@@ -1,9 +1,12 @@
 """The calibration: a published MA-BBOB entry's code under the harness.
 
-The tests named ``test_entry_runs_*`` execute the published code; the others do not.
+The tests named ``test_entry_runs_*`` execute the published code, on GitHub only
+(Harald's decision); the others do not.
 """
 
 import hashlib
+import importlib.util
+import os
 import sys
 import types
 from pathlib import Path
@@ -11,13 +14,23 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import scripts.rebaseline as rb
 from panobbgo.harness_baselines import NeighborhoodAdaptiveDEStrategy, make_baseline_strategies
 from panobbgo.lib.classic import Rosenbrock
 
 VENDORED = Path(__file__).parents[1] / "panobbgo" / "third_party" / "neighborhood_adaptive_de.py"
 ZENODO_MD5 = "8802791b458e1f6931bf87b70bd580b1"
 MODULE = "panobbgo.third_party.neighborhood_adaptive_de"
+
+_PATH = Path(__file__).resolve().parent.parent / "scripts" / "rebaseline.py"
+_spec = importlib.util.spec_from_file_location("rebaseline_cli", _PATH)
+assert _spec is not None and _spec.loader is not None
+rb = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = rb  # dataclasses look their module up there
+_spec.loader.exec_module(rb)
+
+github_only = pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") != "true", reason="executes the published entry, which runs on GitHub only"
+)
 
 
 def test_vendored_code_differs_from_the_published_file_only_by_np_inf():
@@ -35,6 +48,16 @@ def test_calibration_suite_is_opt_in_and_runs_only_the_entry_on_tune_rows():
     assert rb.STRATEGY_SETS["calibrate"](suite) == ["Baseline_NeighborhoodAdaptiveDE"]
     with pytest.raises(ValueError, match="release=none"):
         rb.check_dispatch([suite], "auto")
+
+
+def test_calibration_shard_runs_the_entry_alone_on_a_chunk_of_tune_rows(tmp_path):
+    suite = rb.SUITES["ioh-mabbob-official-calibrate"]
+    assert suite.instance_chunks == rb.MABBOB_INSTANCE_CHUNKS and suite.extras == ("baselines",)
+    [(argv, _)] = rb.shard_commands(suite, [42], "01c02", tmp_path, jobs=4, python="py")
+    assert "--mabbob-official" in argv and "--mabbob-official-heldout" not in argv
+    assert argv[argv.index("--official-chunk") + 1] == f"2/{rb.MABBOB_INSTANCE_CHUNKS}"
+    i = argv.index("--strategies")
+    assert argv[i + 1] == "Baseline_NeighborhoodAdaptiveDE" and argv[i + 2].startswith("--")
 
 
 def test_entry_is_a_selectable_baseline_only_by_name():
@@ -73,6 +96,7 @@ def _run_entry(seed, budget=300):
     return strategy
 
 
+@github_only
 def test_entry_runs_to_exactly_the_budget_inside_the_box():
     strategy = _run_entry(1, budget=317)  # 317: past the initial population, mid-generation
     frame = strategy.results.results
@@ -82,6 +106,7 @@ def test_entry_runs_to_exactly_the_budget_inside_the_box():
     assert (xs >= box[:, 0]).all() and (xs <= box[:, 1]).all()
 
 
+@github_only
 def test_entry_runs_seeded_are_reproducible_and_seeds_differ():
     first, again, other = _run_entry(1), _run_entry(1), _run_entry(2)
     assert np.array_equal(first.results.results["fx"], again.results.results["fx"])

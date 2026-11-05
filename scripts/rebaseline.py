@@ -92,8 +92,8 @@ head-to-head specs on the official MA-BBOB rows, sharded over chunks of rows
 ``scripts/mabbob_compare.py compare``).  Held-out is run once per frozen
 candidate (``doc/dev/benchmarking.md``, "Official MA-BBOB instances").
 ``ioh-mabbob-official-calibrate`` runs a published entry's own code on the tune
-rows, ``ref_ioh_mabbob-official_calibrate.json``: it should score what the entry
-logged, or the harness does not score like the competition.
+rows, ``ref_ioh_mabbob-official_calibrate.json``, against what the entry logged
+(the agreement rule is in ``doc/dev/benchmarking.md``).
 
 Every measurement is synchronous (``sync_eval``) and seeded, with no
 wall-clock limit, so a result depends on the code and the seed only — not

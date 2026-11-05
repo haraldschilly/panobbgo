@@ -302,6 +302,11 @@ Cheap-track items, in GOAL §2c order:
       MA-BBOB, running the NeighborhoodAdaptiveDE code ourselves (Zenodo 15074959,
       CC BY 4.0) on freshly generated instances, since the entries may be tuned
       on the 1000 public rows.
+- [ ] **MA-BBOB: check the CMA-ES paths against `ioh`'s own logger.**  The calibration
+      (`ioh-mabbob-official-calibrate`) does not reach `StrategyBase` or the ask/tell
+      driver.  On a sample of tune rows, attach `ioh`'s `Analyzer` in the worker for
+      `RoundRobin_CMAES` and `Baseline_pycma_BIPOP`; score the log and compare with
+      the same run's record and `n_evals`.  Needed before any "we beat the winner".
 - [ ] **Probe / regime detector** (becomes roadmap A): target the per-cell
       oracle gap +0.015…+0.039 (§53); signal observable early, e.g. the
       first arm's progress rate (§52.4).  The oracle gate (§45) is the seam;
